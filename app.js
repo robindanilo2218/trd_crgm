@@ -213,6 +213,12 @@
                     case 'H4':
                         dateObj.setHours(h - (h % 4), 0, 0, 0);
                         break;
+                    case 'H6':
+                        dateObj.setHours(h - (h % 6), 0, 0, 0);
+                        break;
+                    case 'H12':
+                        dateObj.setHours(h - (h % 12), 0, 0, 0);
+                        break;
                     case 'D1':
                         dateObj.setHours(0, 0, 0, 0);
                         break;
