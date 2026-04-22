@@ -116,13 +116,15 @@
                 const headers = lines[0].split(delimiter).map(h => h.replace(/<|>/g, '').toLowerCase());
 
                 // Buscar indices estandar
-                const iD = headers.findIndex(h => h.includes('date') || h === 'd');
-                const iT = headers.findIndex(h => h.includes('time') || h === 't');
-                const iO = headers.findIndex(h => h.includes('open') || h === 'o');
-                const iH = headers.findIndex(h => h.includes('high') || h === 'h');
-                const iL = headers.findIndex(h => h.includes('low') || h === 'l');
-                const iC = headers.findIndex(h => h.includes('close') || h === 'c');
-                const iTV = headers.findIndex(h => h.includes('tickvol') || h === 'tv');
+                const iD = headers.findIndex(h => h === 'date' || h.includes('date') || h === 'd');
+                const iT = headers.findIndex(h => h === 'time' || h.includes('time') || h === 't');
+                const iO = headers.findIndex(h => h === 'open' || h.includes('open') || h === 'o');
+                const iH = headers.findIndex(h => h === 'high' || h.includes('high') || h === 'h');
+                const iL = headers.findIndex(h => h === 'low' || h.includes('low') || h === 'l');
+                const iC = headers.findIndex(h => h === 'close' || h.includes('close') || h === 'c');
+                const iTV = headers.findIndex(h => h === 'tickvol' || h.includes('tickvol') || h === 'tv');
+                const iV = headers.findIndex(h => h === 'vol' || h === 'volume' || h === 'v');
+                const iS = headers.findIndex(h => h === 'spread' || h.includes('spread') || h === 'sp');
 
                 if (iO === -1 || iC === -1) throw new Error("Faltan columnas Open/Close");
 
@@ -132,9 +134,13 @@
                     if (cols.length < 4) continue;
 
                     let dtStr = '';
-                    if (iD !== -1 && iT !== -1) dtStr = `${cols[iD].replace(/\./g, '-')}T${cols[iT]}`;
-                    else if (iD !== -1) dtStr = cols[iD];
-                    else dtStr = new Date().toISOString();
+                    if (iD !== -1 && iT !== -1) {
+                        dtStr = `${cols[iD].replace(/\./g, '-')}T${cols[iT]}`;
+                    } else if (iD !== -1) {
+                        dtStr = cols[iD].replace(/\./g, '-');
+                    } else {
+                        dtStr = new Date().toISOString();
+                    }
 
                     const timestamp = new Date(dtStr).getTime();
                     if (isNaN(timestamp)) continue;
@@ -145,12 +151,14 @@
                         high: parseFloat(cols[iH]),
                         low: parseFloat(cols[iL]),
                         close: parseFloat(cols[iC]),
-                        vol: iTV !== -1 ? parseInt(cols[iTV]) : 0
+                        tickvol: iTV !== -1 ? parseFloat(cols[iTV]) : 0,
+                        vol: iV !== -1 ? parseFloat(cols[iV]) : 0,
+                        spread: iS !== -1 ? parseFloat(cols[iS]) : 0
                     };
 
                     // Agregar columnas extra que no sean las básicas
                     headers.forEach((h, idx) => {
-                        if (![iD, iT, iO, iH, iL, iC, iTV].includes(idx)) {
+                        if (![iD, iT, iO, iH, iL, iC, iTV, iV, iS].includes(idx)) {
                             row[h] = isNaN(cols[idx]) ? cols[idx] : parseFloat(cols[idx]);
                         }
                     });
@@ -234,7 +242,9 @@
                     grouped[key].high = Math.max(grouped[key].high, r.high);
                     grouped[key].low = Math.min(grouped[key].low, r.low);
                     grouped[key].close = r.close;
-                    grouped[key].vol += r.vol;
+                    if (r.vol !== undefined) grouped[key].vol += r.vol;
+                    if (r.tickvol !== undefined) grouped[key].tickvol += r.tickvol;
+                    if (r.spread !== undefined) grouped[key].spread = Math.max(grouped[key].spread, r.spread);
                 }
             }
             return Object.values(grouped).sort((a, b) => a.datetime - b.datetime);
@@ -319,7 +329,7 @@
 
                 if (c.rsi !== undefined) rsi.push(c.rsi);
                 if (c.atr !== undefined) atr.push(c.atr * pipMult);
-                vol.push(c.vol);
+                vol.push(c.tickvol || c.vol || 0);
 
                 if (!hours[h]) hours[h] = { ranges: [], moves: [] };
                 hours[h].ranges.push(highLowDist);
