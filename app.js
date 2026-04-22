@@ -217,6 +217,13 @@
                         dateObj.setDate(1);
                         dateObj.setHours(0, 0, 0, 0);
                         break;
+                    case 'Y1':
+                        dateObj.setMonth(0, 1);
+                        dateObj.setHours(0, 0, 0, 0);
+                        break;
+                    case 'ALL':
+                        dateObj.setTime(0);
+                        break;
                 }
 
                 key = dateObj.getTime();
