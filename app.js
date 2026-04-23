@@ -696,12 +696,13 @@
                 }
 
                 // Fórmula: Lotes = Riesgo$ / (SL_pips × Valor/pip)
-                const lots = riskMoney / (slPips * pipValue);
-                document.getElementById('risk-lots').innerText = isFinite(lots) && lots > 0 ? lots.toFixed(2) : '0.00';
+                const lotsRaw = riskMoney / (slPips * pipValue);
+                const lots = isFinite(lotsRaw) && lotsRaw > 0 ? parseFloat(lotsRaw.toFixed(2)) : 0;
+                document.getElementById('risk-lots').innerText = lots.toFixed(2);
                 document.getElementById('risk-lots-hint').innerText =
                     `$${riskMoney.toFixed(2)} ÷ (${slPips.toFixed(1)} pips × $${pipValue}/pip)`;
 
-                // Verificación
+                // Verificación (usando lotes redondeados para simular broker real)
                 const actualLoss = lots * slPips * pipValue;
                 const actualPct = bal > 0 ? (actualLoss / bal) * 100 : 0;
                 document.getElementById('verify-loss').innerText = `$${actualLoss.toFixed(2)}`;
