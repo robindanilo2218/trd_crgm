@@ -639,6 +639,8 @@
             document.getElementById('risk-money').innerText = `$${riskMoney.toFixed(2)}`;
             document.getElementById('risk-formula-hint').innerText = `${bal.toLocaleString()} × ${pct}% = $${riskMoney.toFixed(2)}`;
 
+            let slPips = 0;  // en pips, uso interno
+
             if (State.calcMode === 'sl-to-lots') {
                 // ── MODO A: SL conocido → calcular lotaje ──────────────────────
                 const strategy = document.getElementById('risk-strategy').value;
@@ -648,7 +650,7 @@
                 document.getElementById('risk-candle-label').innerText = `Vela #${idx}`;
 
                 const slInputRaw = parseFloat(document.getElementById('risk-sl').value) || 1;
-                let slPips;  // en pips, uso interno
+
 
                 if (strategy !== 'manual') {
                     if (strategy === 'vela') {
