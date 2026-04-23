@@ -64,6 +64,8 @@
             datasets: [],
             activeId: null,
             timeFilter: 'M1', // M1, H1, H4, D1
+            dateStart: null,
+            dateEnd: null,
             processedData: [],
             stats: null,
             // Columnas personalizadas
@@ -186,7 +188,17 @@
             const ds = State.datasets.find(d => d.id === State.activeId);
             if (!ds) return [];
 
-            const raw = ds.data;
+            let raw = ds.data;
+            
+            if (State.dateStart) {
+                const sTime = new Date(State.dateStart + "T00:00:00").getTime();
+                raw = raw.filter(r => r.datetime >= sTime);
+            }
+            if (State.dateEnd) {
+                const eTime = new Date(State.dateEnd + "T23:59:59.999").getTime();
+                raw = raw.filter(r => r.datetime <= eTime);
+            }
+
             if (State.timeFilter === 'M1') return [...raw];
 
             const grouped = {};
@@ -617,6 +629,23 @@
                 State.timeFilter = btn.dataset.tf;
                 renderAll();
             });
+        });
+
+        // Date Filters
+        document.getElementById('date-start').addEventListener('change', (e) => {
+            State.dateStart = e.target.value;
+            renderAll();
+        });
+        document.getElementById('date-end').addEventListener('change', (e) => {
+            State.dateEnd = e.target.value;
+            renderAll();
+        });
+        document.getElementById('btn-date-clear').addEventListener('click', () => {
+            document.getElementById('date-start').value = '';
+            document.getElementById('date-end').value = '';
+            State.dateStart = null;
+            State.dateEnd = null;
+            renderAll();
         });
 
         // Eventos Generales
