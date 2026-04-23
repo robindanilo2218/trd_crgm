@@ -455,6 +455,7 @@
                 renderSidebar();
                 renderTable(data);
                 renderStatsTabs();
+                renderSplitView();
                 updateRiskMax();
 
                 hideLoader();
@@ -613,6 +614,98 @@
                 ${createQuartileHTML(`ATR (${atrP}) Volatilidad`, stats.atr, true)}
                 ${createQuartileHTML(`Volumen (Ticks)`, stats.vol, false)}
             `;
+        }
+
+        function renderSplitView() {
+            const stats = State.stats;
+            const buyStatsEl = document.getElementById('split-buy-stats');
+            const sellStatsEl = document.getElementById('split-sell-stats');
+            const buyHoursEl = document.getElementById('split-buy-hours');
+            const sellHoursEl = document.getElementById('split-sell-hours');
+
+            if (!stats || !buyStatsEl) return;
+
+            const inputPriceEl = document.getElementById('split-exec-price');
+            if (!inputPriceEl.value && State.processedData && State.processedData.length > 0) {
+                const last = State.processedData[State.processedData.length - 1];
+                if (last && last.close) inputPriceEl.value = last.close;
+            } else if (!inputPriceEl.value) {
+                inputPriceEl.value = '1.10500';
+            }
+
+            const basePrice = parseFloat(inputPriceEl.value) || 0;
+            const mult = stats.pipMult;
+
+            // Buy Projections
+            const buyQ3Pips = stats.pos.q3; 
+            const buyMaxPips = stats.pos.max;
+            const buyMedPips = stats.pos.q2;
+
+            buyStatsEl.innerHTML = `
+                <div class="bg-emerald-950/40 p-4 rounded-lg text-center border border-emerald-900/50">
+                    <span class="block text-[10px] text-emerald-200/60 uppercase tracking-wider mb-1">Cierre Promedio (Q3)</span>
+                    <strong class="text-xl text-emerald-400 font-mono">+${buyQ3Pips.toFixed(1)} pips</strong>
+                </div>
+                <div class="bg-white/5 p-4 rounded-lg text-center border border-white/5">
+                    <span class="block text-[10px] text-slate-400 uppercase tracking-wider mb-1">Proyección Max (Techo)</span>
+                    <strong class="text-xl text-white font-mono">${(basePrice + (buyMaxPips / mult)).toFixed(5)}</strong>
+                </div>
+                <div class="bg-white/5 p-4 rounded-lg text-center border border-white/5">
+                    <span class="block text-[10px] text-slate-400 uppercase tracking-wider mb-1">TP Sugerido (Mediana)</span>
+                    <strong class="text-xl text-white font-mono">${(basePrice + (buyMedPips / mult)).toFixed(5)}</strong>
+                </div>
+            `;
+
+            // Sell Projections
+            const sellQ3Pips = stats.neg.q3;
+            const sellMaxPips = stats.neg.max;
+            const sellMedPips = stats.neg.q2;
+
+            sellStatsEl.innerHTML = `
+                <div class="bg-red-950/40 p-4 rounded-lg text-center border border-red-900/50">
+                    <span class="block text-[10px] text-red-200/60 uppercase tracking-wider mb-1">Cierre Promedio (Q3)</span>
+                    <strong class="text-xl text-red-400 font-mono">-${sellQ3Pips.toFixed(1)} pips</strong>
+                </div>
+                <div class="bg-white/5 p-4 rounded-lg text-center border border-white/5">
+                    <span class="block text-[10px] text-slate-400 uppercase tracking-wider mb-1">Proyección Min (Suelo)</span>
+                    <strong class="text-xl text-white font-mono">${(basePrice - (sellMaxPips / mult)).toFixed(5)}</strong>
+                </div>
+                <div class="bg-white/5 p-4 rounded-lg text-center border border-white/5">
+                    <span class="block text-[10px] text-slate-400 uppercase tracking-wider mb-1">TP Sugerido (Mediana)</span>
+                    <strong class="text-xl text-white font-mono">${(basePrice - (sellMedPips / mult)).toFixed(5)}</strong>
+                </div>
+            `;
+
+            // Horas - Nested Quartiles
+            const allQ3 = stats.hours.map(h => h.quartiles.q3);
+            const globalQ3Stats = MathUtils.quartiles(allQ3);
+
+            const buildHoursHtml = (type) => {
+                let html = '';
+                stats.hours.forEach(h => {
+                    const val = h.quartiles.q3;
+                    let bgColor = '';
+                    if (type === 'BUY') {
+                        if (val >= globalQ3Stats.q3) bgColor = 'bg-emerald-500 text-white border-emerald-400';
+                        else if (val >= globalQ3Stats.q2) bgColor = 'bg-emerald-600 text-white border-emerald-500';
+                        else if (val >= globalQ3Stats.q1) bgColor = 'bg-emerald-800/80 text-emerald-200 border-emerald-700/50';
+                        else bgColor = 'bg-emerald-950/50 text-emerald-500/50 border-emerald-900/30';
+                    } else {
+                        if (val >= globalQ3Stats.q3) bgColor = 'bg-red-500 text-white border-red-400';
+                        else if (val >= globalQ3Stats.q2) bgColor = 'bg-red-600 text-white border-red-500';
+                        else if (val >= globalQ3Stats.q1) bgColor = 'bg-red-800/80 text-red-200 border-red-700/50';
+                        else bgColor = 'bg-red-950/50 text-red-500/50 border-red-900/30';
+                    }
+
+                    html += `<div class="flex-1 min-w-[36px] py-2 text-center rounded border text-xs font-mono font-bold transition-transform hover:scale-110 hover:z-10 cursor-help ${bgColor}" title="Q3: ${val.toFixed(1)} pips">
+                        ${h.hour}h
+                    </div>`;
+                });
+                return html;
+            };
+
+            buyHoursEl.innerHTML = buildHoursHtml('BUY');
+            sellHoursEl.innerHTML = buildHoursHtml('SELL');
         }
 
         // ==========================================
@@ -1037,6 +1130,9 @@
         // Bot de Trading
         document.getElementById('btnEjecutarBotBuy')?.addEventListener('click', () => abrirOperacionEURUSD('BUY'));
         document.getElementById('btnEjecutarBotSell')?.addEventListener('click', () => abrirOperacionEURUSD('SELL'));
+
+        // Split View
+        document.getElementById('btn-calc-split')?.addEventListener('click', renderSplitView);
 
         // Toggle de modo de calculadora
         document.getElementById('calc-mode-sl-to-lots').addEventListener('click', () => {

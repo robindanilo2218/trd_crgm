@@ -62,6 +62,10 @@
                 class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all text-slate-400 hover:bg-slate-800 hover:text-slate-200">
                 🤖 Bot / Ejecución Pro
             </button>
+            <button data-target="tab-split"
+                class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all text-slate-400 hover:bg-slate-800 hover:text-slate-200">
+                🎛️ Proyección Split View
+            </button>
         </nav>
 
         <!-- Archivos Guardados (IndexedDB) -->
@@ -507,6 +511,59 @@
                     <!-- Terminal -->
                     <div class="bg-black/90 rounded-xl border border-slate-700 p-4 font-mono text-sm h-72 overflow-y-auto" id="bot-consola">
                         <div class="text-slate-500 mb-3">TradeStats Algo Engine v1.0. Conectando... Listo para recibir órdenes.</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pestaña 7: SPLIT VIEW PROYECCIÓN -->
+            <div id="tab-split" class="tab-content hidden">
+                <div class="flex flex-col h-full gap-4 relative">
+                    <!-- Control Bar -->
+                    <div class="bg-slate-800 border border-slate-700 rounded-xl p-4 flex flex-wrap items-center justify-center gap-4 z-10 shrink-0">
+                        <label for="split-exec-price" class="text-slate-400 text-sm font-medium">Precio de Ejecución Base:</label>
+                        <input type="number" id="split-exec-price" step="0.00001" placeholder="Ej. 1.08500"
+                            class="bg-slate-900 border border-slate-600 rounded px-4 py-2 text-white font-mono w-48 focus:border-blue-500 outline-none transition-colors">
+                        <button id="btn-calc-split" class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-6 rounded transition-colors shadow flex items-center gap-2">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                            Calcular Proyección
+                        </button>
+                    </div>
+
+                    <!-- Split Container -->
+                    <div class="flex flex-col md:flex-row gap-4 flex-1 min-h-0">
+                        <!-- Panel Buy -->
+                        <div class="flex-1 bg-gradient-to-b from-emerald-900/20 to-slate-800 border-t-4 border-emerald-500 rounded-xl p-5 overflow-y-auto border border-slate-700">
+                            <h2 class="text-emerald-400 font-bold text-lg uppercase tracking-wider mb-4 flex items-center gap-2">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"></path></svg>
+                                Escenario BUY (Alcista)
+                            </h2>
+                            <div class="grid grid-cols-1 xl:grid-cols-3 gap-3 mb-6" id="split-buy-stats">
+                                <div class="bg-white/5 p-4 rounded-lg text-center border border-white/5">
+                                    <span class="block text-xs text-slate-400 mb-1">Esperando datos...</span>
+                                    <strong class="text-xl text-white">-</strong>
+                                </div>
+                            </div>
+                            <h3 class="text-sm text-slate-400 mb-3 border-b border-slate-700/50 pb-2">Cuartiles Anidados de Mejores Horas (Análisis Q3)</h3>
+                            <div class="flex flex-wrap gap-1 mt-2" id="split-buy-hours">
+                            </div>
+                        </div>
+
+                        <!-- Panel Sell -->
+                        <div class="flex-1 bg-gradient-to-t from-slate-800 to-red-900/20 border-t-4 border-red-500 rounded-xl p-5 overflow-y-auto border border-slate-700">
+                            <h2 class="text-red-400 font-bold text-lg uppercase tracking-wider mb-4 flex items-center gap-2">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"></path></svg>
+                                Escenario SELL (Bajista)
+                            </h2>
+                            <div class="grid grid-cols-1 xl:grid-cols-3 gap-3 mb-6" id="split-sell-stats">
+                                <div class="bg-white/5 p-4 rounded-lg text-center border border-white/5">
+                                    <span class="block text-xs text-slate-400 mb-1">Esperando datos...</span>
+                                    <strong class="text-xl text-white">-</strong>
+                                </div>
+                            </div>
+                            <h3 class="text-sm text-slate-400 mb-3 border-b border-slate-700/50 pb-2">Cuartiles Anidados de Mejores Horas (Análisis Q3)</h3>
+                            <div class="flex flex-wrap gap-1 mt-2" id="split-sell-hours">
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
