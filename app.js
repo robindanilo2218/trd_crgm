@@ -1409,7 +1409,6 @@
             
             if (floatingClock && clockDetails && clockMini) {
                 floatingClock.addEventListener('click', function() {
-                    if (window.innerWidth >= 768) return; // Solo en móvil
 
                     if (clockDetails.classList.contains('hidden')) {
                         // Expandir
