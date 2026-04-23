@@ -1,10 +1,12 @@
-const CACHE_NAME = 'tradestats-v7';
+const CACHE_NAME = 'tradestats-v8';
 
 const urlsToCache = [
     './',
     './index.html',
     './manifest.json',
     './icon.svg',
+    './icon-192.png',
+    './icon-512.png',
     './app.js',
     './style.css',
     './tailwind.config.js?v=7',
