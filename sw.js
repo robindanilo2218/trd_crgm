@@ -1,24 +1,35 @@
-const CACHE_NAME = 'tradestats-v4';
+const CACHE_NAME = 'tradestats-v5';
 
-self.addEventListener('message', event => {
-    if (event.data && event.data.action === 'skipWaiting') {
-        self.skipWaiting();
-    }
-});
 const urlsToCache = [
     './',
     './index.html',
     './manifest.json',
     './app.js',
     './style.css',
-    './tailwind.config.js',
-    './tailwindcss.js'
+    './tailwind.config.js?v=5',
+    './tailwindcss.js?v=5'
 ];
 
 self.addEventListener('install', event => {
+    self.skipWaiting(); // Force the new service worker to activate immediately
     event.waitUntil(
         caches.open(CACHE_NAME)
             .then(cache => cache.addAll(urlsToCache))
+    );
+});
+
+self.addEventListener('activate', event => {
+    // Delete all old caches
+    event.waitUntil(
+        caches.keys().then(cacheNames => {
+            return Promise.all(
+                cacheNames.map(cacheName => {
+                    if (cacheName !== CACHE_NAME) {
+                        return caches.delete(cacheName);
+                    }
+                })
+            );
+        }).then(() => self.clients.claim()) // Take control of all pages immediately
     );
 });
 
