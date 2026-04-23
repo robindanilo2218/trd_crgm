@@ -90,13 +90,18 @@
                 </div>
             </div>
 
-            <!-- Date Range Filter -->
-            <div class="flex items-center gap-2 text-xs bg-slate-900 p-1.5 rounded-lg border border-slate-700 w-full sm:w-auto overflow-x-auto">
-                <span class="text-slate-400 px-1 hidden lg:inline">Rango:</span>
-                <input type="date" id="date-start" class="bg-slate-800 border border-slate-600 rounded text-slate-300 px-2 py-1 outline-none focus:border-blue-500">
-                <span class="text-slate-500">-</span>
-                <input type="date" id="date-end" class="bg-slate-800 border border-slate-600 rounded text-slate-300 px-2 py-1 outline-none focus:border-blue-500">
-                <button id="btn-date-clear" class="text-slate-400 hover:text-red-400 px-2 transition-colors" title="Limpiar filtro">✕</button>
+            <!-- Date Range Filter & Availability Container -->
+            <div class="flex flex-col items-end gap-1 w-full sm:w-auto">
+                <div class="flex items-center gap-2 text-xs bg-slate-900 p-1.5 rounded-lg border border-slate-700 w-full sm:w-auto overflow-x-auto">
+                    <span class="text-slate-400 px-1 hidden lg:inline">Rango:</span>
+                    <input type="date" id="date-start" class="bg-slate-800 border border-slate-600 rounded text-slate-300 px-2 py-1 outline-none focus:border-blue-500">
+                    <span class="text-slate-500">-</span>
+                    <input type="date" id="date-end" class="bg-slate-800 border border-slate-600 rounded text-slate-300 px-2 py-1 outline-none focus:border-blue-500">
+                    <button id="btn-date-clear" class="text-slate-400 hover:text-red-400 px-2 transition-colors" title="Limpiar filtro">✕</button>
+                </div>
+                <div id="data-availability" class="text-[10px] text-slate-500 hidden">
+                    Datos: <span id="data-avail-start" class="font-medium text-slate-400">...</span> al <span id="data-avail-end" class="font-medium text-slate-400">...</span>
+                </div>
             </div>
 
             <div class="flex gap-1 bg-slate-900 p-1 rounded-lg border border-slate-700 overflow-x-auto max-w-full">

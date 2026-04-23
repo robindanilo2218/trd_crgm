@@ -431,6 +431,7 @@
                 list.innerHTML = '<li class="text-slate-500 italic text-xs">Ningún archivo cargado</li>';
                 document.getElementById('active-dataset-name').innerText = 'Ninguno';
                 document.getElementById('btn-add-calc').classList.add('hidden');
+                document.getElementById('data-availability').classList.add('hidden');
                 return;
             }
 
@@ -450,6 +451,16 @@
                     document.getElementById('active-dataset-name').innerText = d.name;
                     document.getElementById('btn-add-calc').classList.remove('hidden');
                     document.getElementById('data-status').innerText = `${State.processedData.length} registros (${State.timeFilter})`;
+                    if (d.data && d.data.length > 0) {
+                        const fDate = new Date(d.data[0].datetime);
+                        const lDate = new Date(d.data[d.data.length - 1].datetime);
+                        const formatDate = date => `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+                        document.getElementById('data-avail-start').innerText = formatDate(fDate);
+                        document.getElementById('data-avail-end').innerText = formatDate(lDate);
+                        document.getElementById('data-availability').classList.remove('hidden');
+                    } else {
+                        document.getElementById('data-availability').classList.add('hidden');
+                    }
                 }
             });
         }
