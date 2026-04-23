@@ -811,7 +811,22 @@
             document.getElementById('bot-display-lots').innerText = lots.toFixed(2);
             document.getElementById('bot-display-sl').innerHTML = `${slDisp} <span class="text-xs text-slate-500">${document.getElementById('sl-mode-label').innerText}</span>`;
             document.getElementById('bot-display-tp').innerHTML = `${tpDisp} <span class="text-xs text-slate-500">${document.getElementById('tp-mode-label').innerText}</span>`;
+            
+            // Pre-fill realistic price if available and not manually overridden
+            const priceInput = document.getElementById('bot-precio-actual');
+            if (!priceInput.dataset.manual && State.processedData && State.processedData.length > 0) {
+                const lastCandle = State.processedData[State.processedData.length - 1];
+                if (lastCandle && lastCandle.close) {
+                    priceInput.value = lastCandle.close;
+                }
+            } else if (!priceInput.value) {
+                priceInput.value = "1.10500";
+            }
         }
+
+        document.getElementById('bot-precio-actual')?.addEventListener('input', function() {
+            this.dataset.manual = "true";
+        });
 
         function logMensajeBot(mensaje) {
             const consola = document.getElementById('bot-consola');
@@ -821,9 +836,10 @@
             consola.scrollTop = consola.scrollHeight;
         }
 
-        async function abrirOperacionEURUSD() {
+        async function abrirOperacionEURUSD(side) {
             const symbol = "EURUSD";
             const lots = State.currentLots || 0;
+            const priceInput = document.getElementById('bot-precio-actual').value;
             
             if (lots <= 0) {
                 logMensajeBot(`<span class="text-red-400">❌ Error: El lotaje debe ser mayor a 0. Ajusta la calculadora de riesgo.</span>`);
@@ -833,40 +849,44 @@
             logMensajeBot(`Iniciando evaluación algorítmica para ${symbol}...`);
 
             try {
-                // PASO A: Simular obtención de precio
-                logMensajeBot("Conectando con el broker para obtener el precio actual...");
-                await new Promise(resolve => setTimeout(resolve, 800)); // Simulate latency
-                
-                const precioCompraAsk = 1.1050; // Precio simulado
-                logMensajeBot(`Precio Ask actual recibido: <span class="text-white">${precioCompraAsk}</span>`);
+                // PASO A: Capturar el precio actual del input
+                const precioEjecucion = parseFloat(priceInput);
+                if (isNaN(precioEjecucion)) throw new Error("Precio de ejecución inválido");
 
-                // PASO B: Calcular SL y TP exactos basado en pips
-                // Obtenemos los pips reales, independientemente del modo de visualización
+                logMensajeBot(`Precio de mercado confirmado: <span class="text-white">${precioEjecucion}</span>`);
+
+                // PASO B: Calcular SL y TP exactos basado en pips y dirección
                 const slPips = State.currentSlPips || 0;
                 const rr = parseFloat(document.getElementById('risk-rr-input').value) || 0;
                 const tpPips = slPips * rr;
 
-                const precioSL = precioCompraAsk - (slPips * 0.0001);
-                const precioTP = precioCompraAsk + (tpPips * 0.0001);
+                let precioSL, precioTP;
+                if (side === 'BUY') {
+                    precioSL = precioEjecucion - (slPips * 0.0001);
+                    precioTP = precioEjecucion + (tpPips * 0.0001);
+                } else {
+                    precioSL = precioEjecucion + (slPips * 0.0001);
+                    precioTP = precioEjecucion - (tpPips * 0.0001);
+                }
 
-                const ordenDeCompra = {
+                const orden = {
                     instrument: symbol,
                     units: lots * 100000, 
                     type: "MARKET",               
-                    side: "BUY",                  
+                    side: side,                  
                     stopLoss: precioSL.toFixed(5),
                     takeProfit: precioTP.toFixed(5)
                 };
 
-                logMensajeBot("Condiciones óptimas. Enviando orden de mercado:");
-                logMensajeBot(`<span class="text-slate-400">${JSON.stringify(ordenDeCompra)}</span>`);
+                logMensajeBot(`Condiciones óptimas. Enviando orden de ${side === 'BUY' ? 'COMPRA' : 'VENTA'}:`);
+                logMensajeBot(`<span class="text-slate-400">${JSON.stringify(orden)}</span>`);
                 
-                await new Promise(resolve => setTimeout(resolve, 1200)); // Simulate API call
+                await new Promise(resolve => setTimeout(resolve, 800)); // Simulate API call
 
                 // PASO D: Confirmación simulada
                 const ticketSimulado = Math.floor(Math.random() * 1000000);
-                logMensajeBot(`<span class="text-emerald-400">✅ Éxito. Operación abierta. Ticket: #${ticketSimulado}</span>`);
-                logMensajeBot(`<span class="text-blue-300">-> SL fijado en: ${precioSL.toFixed(5)}</span>`);
+                logMensajeBot(`<span class="text-emerald-400">✅ Éxito. Operación abierta a ${precioEjecucion}. Ticket: #${ticketSimulado}</span>`);
+                logMensajeBot(`<span class="text-red-300">-> SL fijado en: ${precioSL.toFixed(5)}</span>`);
                 logMensajeBot(`<span class="text-emerald-300">-> TP fijado en: ${precioTP.toFixed(5)}</span>`);
 
             } catch (error) {
@@ -1014,7 +1034,8 @@
         document.getElementById('risk-tp-input').addEventListener('input', () => calcTPProj('tp'));
 
         // Bot de Trading
-        document.getElementById('btnEjecutarBot')?.addEventListener('click', abrirOperacionEURUSD);
+        document.getElementById('btnEjecutarBotBuy')?.addEventListener('click', () => abrirOperacionEURUSD('BUY'));
+        document.getElementById('btnEjecutarBotSell')?.addEventListener('click', () => abrirOperacionEURUSD('SELL'));
 
         // Toggle de modo de calculadora
         document.getElementById('calc-mode-sl-to-lots').addEventListener('click', () => {
