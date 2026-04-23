@@ -418,16 +418,21 @@
                 if (c.atr !== undefined) atr.push(c.atr * pipMult);
                 vol.push(c.tickvol || c.vol || 0);
 
-                if (!hours[h]) hours[h] = { ranges: [], moves: [] };
+                if (!hours[h]) hours[h] = { ranges: [], moves: [], pos: [], neg: [] };
                 hours[h].ranges.push(highLowDist);
                 hours[h].moves.push(Math.abs(openCloseDist));
+                
+                if (c.close >= c.open) hours[h].pos.push(openCloseDist);
+                else hours[h].neg.push(Math.abs(openCloseDist));
             }
 
             const procHours = Object.keys(hours).map(k => ({
                 hour: parseInt(k),
                 avgRange: hours[k].ranges.reduce((a, b) => a + b, 0) / hours[k].ranges.length,
                 quartiles: MathUtils.quartiles(hours[k].moves),
-                mode: MathUtils.mode(hours[k].moves)
+                mode: MathUtils.mode(hours[k].moves),
+                posStats: MathUtils.quartiles(hours[k].pos),
+                negStats: MathUtils.quartiles(hours[k].neg)
             })).sort((a, b) => a.hour - b.hour);
 
             return {
@@ -616,95 +621,178 @@
             `;
         }
 
-        function renderSplitView() {
+        function renderSplitView(specificHour = null) {
             const stats = State.stats;
             const buyStatsEl = document.getElementById('split-buy-stats');
             const sellStatsEl = document.getElementById('split-sell-stats');
             const buyHoursEl = document.getElementById('split-buy-hours');
             const sellHoursEl = document.getElementById('split-sell-hours');
+            const metricEl = document.getElementById('split-metric');
 
-            if (!stats) {
+            if (!stats || !State.processedData || State.processedData.length === 0) {
                 alert("Por favor, carga o selecciona un archivo de datos (CSV) primero para que el motor pueda calcular proyecciones basadas en volatilidad real.");
                 return;
             }
-            if (!buyStatsEl) return;
+            if (!buyStatsEl || !metricEl) return;
 
+            const metric = metricEl.value; // 'close', 'max_excursion', 'drawdown', 'close_wicks'
             const inputPriceEl = document.getElementById('split-exec-price');
-            if (!inputPriceEl.value && State.processedData && State.processedData.length > 0) {
+            if (!inputPriceEl.value) {
                 const last = State.processedData[State.processedData.length - 1];
                 if (last && last.close) inputPriceEl.value = last.close;
-            } else if (!inputPriceEl.value) {
-                inputPriceEl.value = '1.10500';
+                else inputPriceEl.value = '1.10500';
             }
 
             const basePrice = parseFloat(inputPriceEl.value) || 0;
             const mult = stats.pipMult;
 
-            // Buy Projections
-            const buyQ3Pips = stats.pos.q3; 
-            const buyMaxPips = stats.pos.max;
-            const buyMedPips = stats.pos.q2;
+            // Extraer distancias de una vela basadas en la métrica y dirección (en PIPS)
+            const getDist = (c, dir) => {
+                if (metric === 'close') {
+                    if (dir === 'BUY' && c.close >= c.open) return (c.close - c.open) * mult;
+                    if (dir === 'SELL' && c.close < c.open) return (c.open - c.close) * mult;
+                } else if (metric === 'max_excursion') {
+                    if (dir === 'BUY') return (c.high - c.open) * mult;
+                    if (dir === 'SELL') return (c.open - c.low) * mult;
+                } else if (metric === 'drawdown') {
+                    if (dir === 'BUY') return (c.open - c.low) * mult;
+                    if (dir === 'SELL') return (c.high - c.open) * mult;
+                } else if (metric === 'close_wicks') {
+                    if (dir === 'BUY') return (c.high - c.close) * mult;
+                    if (dir === 'SELL') return (c.close - c.low) * mult;
+                }
+                return null;
+            };
 
+            // Recolectar datos por hora para el Heatmap y proyecciones
+            const hoursData = Array.from({length: 24}, () => ({ buy: [], sell: [] }));
+            let globalBuy = [];
+            let globalSell = [];
+
+            State.processedData.forEach(c => {
+                const h = new Date(c.datetime).getHours();
+                const bDist = getDist(c, 'BUY');
+                const sDist = getDist(c, 'SELL');
+                
+                if (bDist !== null && bDist >= 0) {
+                    hoursData[h].buy.push(bDist);
+                    globalBuy.push(bDist);
+                }
+                if (sDist !== null && sDist >= 0) {
+                    hoursData[h].sell.push(sDist);
+                    globalSell.push(sDist);
+                }
+            });
+
+            const getExtendedStats = (arr) => {
+                if (arr.length === 0) return {q1:0, q2:0, q3:0, max:0, min:0, avg:0};
+                const qs = MathUtils.quartiles(arr);
+                const sum = arr.reduce((a, b) => a + b, 0);
+                qs.avg = sum / arr.length;
+                return qs;
+            };
+
+            let posStatsSource, negStatsSource, contextLabel;
+
+            if (specificHour !== null) {
+                posStatsSource = getExtendedStats(hoursData[specificHour].buy);
+                negStatsSource = getExtendedStats(hoursData[specificHour].sell);
+                contextLabel = `${specificHour.toString().padStart(2, '0')}:00h`;
+            } else {
+                posStatsSource = getExtendedStats(globalBuy);
+                negStatsSource = getExtendedStats(globalSell);
+                contextLabel = "GLOBAL";
+            }
+
+            const statType = document.getElementById('split-stat')?.value || 'q3'; // 'q1', 'q2', 'avg', 'q3', 'max'
+
+            // Textos de Proyección adaptables a la métrica y base estadística
+            let buyLabel1 = "Conservador (Q1)", buyLabel2 = "Seleccionado", buyLabel3 = "Máximo (Max)";
+            let sellLabel1 = "Conservador (Q1)", sellLabel2 = "Seleccionado", sellLabel3 = "Máximo (Max)";
+            
+            let statNames = { 'q1': 'Q1', 'q2': 'Mediana', 'avg': 'Promedio', 'q3': 'Q3', 'max': 'Max' };
+            buyLabel2 = `${statNames[statType]} (${contextLabel})`;
+            sellLabel2 = `${statNames[statType]} (${contextLabel})`;
+
+            if (metric === 'close') {
+                buyLabel1 = "TP Conservador"; buyLabel3 = "Techo Max";
+                sellLabel1 = "TP Conservador"; sellLabel3 = "Suelo Max";
+            } else if (metric === 'max_excursion') {
+                buyLabel1 = "Techo Conservador"; buyLabel3 = "Techo Extremo";
+                sellLabel1 = "Suelo Conservador"; sellLabel3 = "Suelo Extremo";
+            } else if (metric === 'drawdown') {
+                buyLabel1 = "Drawdown Probable"; buyLabel3 = "Riesgo Extremo";
+                sellLabel1 = "Drawdown Probable"; sellLabel3 = "Riesgo Extremo";
+            } else if (metric === 'close_wicks') {
+                buyLabel1 = "Mecha Común"; buyLabel3 = "Mecha Extrema";
+                sellLabel1 = "Mecha Común"; sellLabel3 = "Mecha Extrema";
+            }
+
+            // Buy Projections
             buyStatsEl.innerHTML = `
-                <div class="bg-emerald-950/40 p-4 rounded-lg text-center border border-emerald-900/50">
-                    <span class="block text-[10px] text-emerald-200/60 uppercase tracking-wider mb-1">Cierre Promedio (Q3)</span>
-                    <strong class="text-xl text-emerald-400 font-mono">+${buyQ3Pips.toFixed(1)} pips</strong>
+                <div class="bg-white/5 p-4 rounded-lg text-center border border-white/5">
+                    <span class="block text-[10px] text-slate-400 uppercase tracking-wider mb-1">${buyLabel1}</span>
+                    <strong class="text-xl text-white font-mono">${(basePrice + (posStatsSource.q1 / mult)).toFixed(5)}</strong>
+                </div>
+                <div class="bg-emerald-950/40 p-4 rounded-lg text-center border border-emerald-900/50 ring-1 ring-emerald-500/50">
+                    <span class="block text-[10px] text-emerald-200/60 uppercase tracking-wider mb-1">${buyLabel2}</span>
+                    <strong class="text-xl text-emerald-400 font-mono">+${posStatsSource[statType].toFixed(1)} pips</strong>
                 </div>
                 <div class="bg-white/5 p-4 rounded-lg text-center border border-white/5">
-                    <span class="block text-[10px] text-slate-400 uppercase tracking-wider mb-1">Proyección Max (Techo)</span>
-                    <strong class="text-xl text-white font-mono">${(basePrice + (buyMaxPips / mult)).toFixed(5)}</strong>
-                </div>
-                <div class="bg-white/5 p-4 rounded-lg text-center border border-white/5">
-                    <span class="block text-[10px] text-slate-400 uppercase tracking-wider mb-1">TP Sugerido (Mediana)</span>
-                    <strong class="text-xl text-white font-mono">${(basePrice + (buyMedPips / mult)).toFixed(5)}</strong>
+                    <span class="block text-[10px] text-slate-400 uppercase tracking-wider mb-1">${buyLabel3}</span>
+                    <strong class="text-xl text-white font-mono">${(basePrice + (posStatsSource.max / mult)).toFixed(5)}</strong>
                 </div>
             `;
 
-            // Sell Projections
-            const sellQ3Pips = stats.neg.q3;
-            const sellMaxPips = stats.neg.max;
-            const sellMedPips = stats.neg.q2;
+            let sDir = (metric === 'drawdown' || metric === 'close_wicks') ? 1 : -1; 
 
             sellStatsEl.innerHTML = `
-                <div class="bg-red-950/40 p-4 rounded-lg text-center border border-red-900/50">
-                    <span class="block text-[10px] text-red-200/60 uppercase tracking-wider mb-1">Cierre Promedio (Q3)</span>
-                    <strong class="text-xl text-red-400 font-mono">-${sellQ3Pips.toFixed(1)} pips</strong>
+                <div class="bg-white/5 p-4 rounded-lg text-center border border-white/5">
+                    <span class="block text-[10px] text-slate-400 uppercase tracking-wider mb-1">${sellLabel1}</span>
+                    <strong class="text-xl text-white font-mono">${(basePrice + (negStatsSource.q1 / mult * sDir)).toFixed(5)}</strong>
+                </div>
+                <div class="bg-red-950/40 p-4 rounded-lg text-center border border-red-900/50 ring-1 ring-red-500/50">
+                    <span class="block text-[10px] text-red-200/60 uppercase tracking-wider mb-1">${sellLabel2}</span>
+                    <strong class="text-xl text-red-400 font-mono">${negStatsSource[statType].toFixed(1)} pips</strong>
                 </div>
                 <div class="bg-white/5 p-4 rounded-lg text-center border border-white/5">
-                    <span class="block text-[10px] text-slate-400 uppercase tracking-wider mb-1">Proyección Min (Suelo)</span>
-                    <strong class="text-xl text-white font-mono">${(basePrice - (sellMaxPips / mult)).toFixed(5)}</strong>
-                </div>
-                <div class="bg-white/5 p-4 rounded-lg text-center border border-white/5">
-                    <span class="block text-[10px] text-slate-400 uppercase tracking-wider mb-1">TP Sugerido (Mediana)</span>
-                    <strong class="text-xl text-white font-mono">${(basePrice - (sellMedPips / mult)).toFixed(5)}</strong>
+                    <span class="block text-[10px] text-slate-400 uppercase tracking-wider mb-1">${sellLabel3}</span>
+                    <strong class="text-xl text-white font-mono">${(basePrice + (negStatsSource.max / mult * sDir)).toFixed(5)}</strong>
                 </div>
             `;
 
-            // Horas - Nested Quartiles
-            const allQ3 = stats.hours.map(h => h.quartiles.q3);
-            const globalQ3Stats = MathUtils.quartiles(allQ3);
+            // Horas - Nested Quartiles (basados en la base estadística seleccionada)
+            const buyBaseStats = hoursData.map(h => getExtendedStats(h.buy)[statType]);
+            const sellBaseStats = hoursData.map(h => getExtendedStats(h.sell)[statType]);
+            const globalBuyBaseQuartiles = MathUtils.quartiles(buyBaseStats);
+            const globalSellBaseQuartiles = MathUtils.quartiles(sellBaseStats);
 
             const buildHoursHtml = (type) => {
                 let html = '';
-                stats.hours.forEach(h => {
-                    const val = h.quartiles.q3;
+                for (let h = 0; h < 24; h++) {
+                    const qStats = type === 'BUY' ? getExtendedStats(hoursData[h].buy) : getExtendedStats(hoursData[h].sell);
+                    const val = qStats[statType];
+                    const gStats = type === 'BUY' ? globalBuyBaseQuartiles : globalSellBaseQuartiles;
+                    
                     let bgColor = '';
                     if (type === 'BUY') {
-                        if (val >= globalQ3Stats.q3) bgColor = 'bg-emerald-500 text-white border-emerald-400';
-                        else if (val >= globalQ3Stats.q2) bgColor = 'bg-emerald-600 text-white border-emerald-500';
-                        else if (val >= globalQ3Stats.q1) bgColor = 'bg-emerald-800/80 text-emerald-200 border-emerald-700/50';
+                        if (val >= gStats.q3) bgColor = 'bg-emerald-500 text-white border-emerald-400';
+                        else if (val >= gStats.q2) bgColor = 'bg-emerald-600 text-white border-emerald-500';
+                        else if (val >= gStats.q1) bgColor = 'bg-emerald-800/80 text-emerald-200 border-emerald-700/50';
                         else bgColor = 'bg-emerald-950/50 text-emerald-500/50 border-emerald-900/30';
                     } else {
-                        if (val >= globalQ3Stats.q3) bgColor = 'bg-red-500 text-white border-red-400';
-                        else if (val >= globalQ3Stats.q2) bgColor = 'bg-red-600 text-white border-red-500';
-                        else if (val >= globalQ3Stats.q1) bgColor = 'bg-red-800/80 text-red-200 border-red-700/50';
+                        if (val >= gStats.q3) bgColor = 'bg-red-500 text-white border-red-400';
+                        else if (val >= gStats.q2) bgColor = 'bg-red-600 text-white border-red-500';
+                        else if (val >= gStats.q1) bgColor = 'bg-red-800/80 text-red-200 border-red-700/50';
                         else bgColor = 'bg-red-950/50 text-red-500/50 border-red-900/30';
                     }
 
-                    html += `<div class="flex-1 min-w-[36px] py-2 text-center rounded border text-xs font-mono font-bold transition-transform hover:scale-110 hover:z-10 cursor-help ${bgColor}" title="Q3: ${val.toFixed(1)} pips">
-                        ${h.hour}h
+                    let selectedStyles = specificHour === h ? 'ring-2 ring-white scale-110 z-10' : '';
+                    
+                    html += `<div onclick="renderSplitView(${h})" class="flex-1 min-w-[36px] py-2 text-center rounded border text-xs font-mono font-bold transition-transform hover:scale-110 hover:z-10 cursor-pointer ${bgColor} ${selectedStyles}" title="Clic para proyectar esta hora (${statNames[statType]}: ${val.toFixed(1)} pips)">
+                        ${h}h
                     </div>`;
-                });
+                }
                 return html;
             };
 
@@ -1136,7 +1224,9 @@
         document.getElementById('btnEjecutarBotSell')?.addEventListener('click', () => abrirOperacionEURUSD('SELL'));
 
         // Split View
-        document.getElementById('btn-calc-split')?.addEventListener('click', renderSplitView);
+        document.getElementById('btn-calc-split')?.addEventListener('click', () => renderSplitView(null));
+        document.getElementById('split-metric')?.addEventListener('change', () => renderSplitView(null));
+        document.getElementById('split-stat')?.addEventListener('change', () => renderSplitView(null));
 
         // Toggle de modo de calculadora
         document.getElementById('calc-mode-sl-to-lots').addEventListener('click', () => {
@@ -1178,5 +1268,69 @@
             await loadDatasets();
         });
 
+        // ==========================================
+        // 7. RELOJ DE TRADING
+        // ==========================================
+        function initTradingClock() {
+            const timeEl = document.getElementById('clock-current-time');
+            const leftEl = document.getElementById('clock-time-left');
+            if(!timeEl || !leftEl) return;
+
+            setInterval(() => {
+                const now = new Date();
+                timeEl.textContent = now.toLocaleTimeString('es-ES', { hour12: false });
+
+                let tfMs = 3600000; // Por defecto 1H
+                if (State.processedData && State.processedData.length >= 2) {
+                    const l = State.processedData.length;
+                    const d1 = new Date(State.processedData[l-1].datetime).getTime();
+                    const d2 = new Date(State.processedData[l-2].datetime).getTime();
+                    const diff = Math.abs(d1 - d2);
+                    if (diff >= 60000 && diff <= 86400000) {
+                        tfMs = diff;
+                    }
+                }
+
+                const nowMs = now.getTime();
+                let nextCandleMs = nowMs;
+                
+                if (State.processedData && State.processedData.length > 0) {
+                    const lastCandleMs = new Date(State.processedData[State.processedData.length-1].datetime).getTime();
+                    // Project grid forward from the last candle time
+                    const intervalsPassed = Math.floor((nowMs - lastCandleMs) / tfMs);
+                    nextCandleMs = lastCandleMs + (intervalsPassed + 1) * tfMs;
+                    if (nowMs < lastCandleMs) {
+                       nextCandleMs = lastCandleMs;
+                    }
+                } else {
+                    nextCandleMs = nowMs + (tfMs - (nowMs % tfMs));
+                }
+                
+                const timeLeftMs = nextCandleMs - nowMs;
+
+                const s = Math.floor(timeLeftMs / 1000) % 60;
+                const m = Math.floor(timeLeftMs / 60000) % 60;
+                const h = Math.floor(timeLeftMs / 3600000);
+
+                if (h > 0) {
+                    leftEl.textContent = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+                } else {
+                    leftEl.textContent = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+                }
+                
+                if (timeLeftMs <= 60000) {
+                    leftEl.classList.remove('text-blue-400');
+                    leftEl.classList.add('text-red-400', 'animate-pulse');
+                } else {
+                    leftEl.classList.remove('text-red-400', 'animate-pulse');
+                    leftEl.classList.add('text-blue-400');
+                }
+
+            }, 1000);
+        }
+
         // INICIALIZACIÓN
-        window.onload = loadDatasets;
+        window.onload = () => {
+            loadDatasets();
+            initTradingClock();
+        };
