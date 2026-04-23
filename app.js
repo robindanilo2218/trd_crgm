@@ -617,7 +617,9 @@
 
         // ==========================================
         // 6. CALCULADORA DE RIESGO
-        // ==========================================
+        // Estado del modo de calculadora: 'sl-to-lots' | 'lots-to-sl'
+        State.calcMode = 'sl-to-lots';
+
         function updateRiskMax() {
             const el = document.getElementById('risk-candle-idx');
             el.max = Math.max(0, State.processedData.length - 1);
@@ -626,62 +628,110 @@
         }
 
         function calcRisk() {
-            if (!State.stats || State.processedData.length === 0) return;
-
             const bal = parseFloat(document.getElementById('risk-balance').value) || 0;
             const pct = parseFloat(document.getElementById('risk-percent').value) || 0;
-            const idx = parseInt(document.getElementById('risk-candle-idx').value) || 0;
-            const strategy = document.getElementById('risk-strategy').value;
+            const pipValue = parseFloat(document.getElementById('risk-pip-value').value) || 10;
 
-            document.getElementById('risk-candle-label').innerText = `Vela #${idx}`;
+            // 1) Dinero en riesgo
+            const riskMoney = bal * (pct / 100);
+            document.getElementById('risk-money').innerText = `$${riskMoney.toFixed(2)}`;
+            document.getElementById('risk-formula-hint').innerText = `${bal.toLocaleString()} × ${pct}% = $${riskMoney.toFixed(2)}`;
 
-            // El input de SL siempre se lee en la unidad activa; lo convertimos a pips internamente
-            const slInputRaw = parseFloat(document.getElementById('risk-sl').value) || 1;
-            let slPips;  // valor en pips para el cálculo de lotes
+            if (State.calcMode === 'sl-to-lots') {
+                // ── MODO A: SL conocido → calcular lotaje ──────────────────────
+                if (!State.stats || State.processedData.length === 0) return;
 
-            if (strategy !== 'manual') {
-                if (strategy === 'vela') {
-                    const c = State.processedData[idx];
-                    const isBull = c.close >= c.open;
-                    const dist = isBull ? (c.close - c.low) : (c.high - c.close);
-                    slPips = Math.max(1, dist * State.stats.pipMult);
-                    document.getElementById('slider-container').classList.remove('hidden');
+                const idx = parseInt(document.getElementById('risk-candle-idx').value) || 0;
+                const strategy = document.getElementById('risk-strategy').value;
+                document.getElementById('risk-candle-label').innerText = `Vela #${idx}`;
+
+                const slInputRaw = parseFloat(document.getElementById('risk-sl').value) || 1;
+                let slPips;  // en pips, uso interno
+
+                if (strategy !== 'manual') {
+                    if (strategy === 'vela') {
+                        const c = State.processedData[idx];
+                        const isBull = c.close >= c.open;
+                        const dist = isBull ? (c.close - c.low) : (c.high - c.close);
+                        slPips = Math.max(0.1, dist * State.stats.pipMult);
+                        document.getElementById('slider-container').classList.remove('hidden');
+                    } else {
+                        document.getElementById('slider-container').classList.add('hidden');
+                        if (strategy === 'pos_q1') slPips = State.stats.pos.q1;
+                        else if (strategy === 'pos_q2') slPips = State.stats.pos.q2;
+                        else if (strategy === 'pos_q3') slPips = State.stats.pos.q3;
+                        else if (strategy === 'neg_q1') slPips = State.stats.neg.q1;
+                        else if (strategy === 'neg_q2') slPips = State.stats.neg.q2;
+                        else if (strategy === 'neg_q3') slPips = State.stats.neg.q3;
+                        else if (strategy === 'atr') {
+                            const last = State.processedData[State.processedData.length - 1];
+                            slPips = last && last.atr ? (last.atr * State.stats.pipMult) : 1;
+                        }
+                        slPips = Math.max(0.1, slPips);
+                    }
+                    // Mostrar en unidad activa
+                    document.getElementById('risk-sl').value = fromPips(slPips);
                 } else {
                     document.getElementById('slider-container').classList.add('hidden');
-
-                    if (strategy === 'pos_q1') slPips = State.stats.pos.q1;
-                    else if (strategy === 'pos_q2') slPips = State.stats.pos.q2;
-                    else if (strategy === 'pos_q3') slPips = State.stats.pos.q3;
-                    else if (strategy === 'neg_q1') slPips = State.stats.neg.q1;
-                    else if (strategy === 'neg_q2') slPips = State.stats.neg.q2;
-                    else if (strategy === 'neg_q3') slPips = State.stats.neg.q3;
-                    else if (strategy === 'atr') {
-                        const lastCandle = State.processedData[State.processedData.length - 1];
-                        slPips = lastCandle && lastCandle.atr ? (lastCandle.atr * State.stats.pipMult) : 1;
+                    // Convertir unidad activa → pips
+                    switch (State.displayMode) {
+                        case 'pips':   slPips = Math.max(0.001, slInputRaw); break;
+                        case 'points': slPips = Math.max(0.001, slInputRaw / 10); break;
+                        case 'value':  slPips = Math.max(0.001, slInputRaw * (State.stats?.pipMult || 10000)); break;
                     }
-                    slPips = Math.max(1, slPips);
                 }
-                // Mostrar SL en la unidad activa
-                document.getElementById('risk-sl').value = fromPips(slPips);
+
+                // Etiqueta de unidad
+                const slLabelMap = { pips: 'Pips', points: 'Puntos', value: 'Valor (precio)' };
+                document.getElementById('sl-mode-label').innerText = slLabelMap[State.displayMode];
+                // Equivalencia en pips
+                if (State.displayMode !== 'pips') {
+                    document.getElementById('sl-pips-equiv').innerText = `≈ ${slPips.toFixed(1)} pips`;
+                } else {
+                    document.getElementById('sl-pips-equiv').innerText = '';
+                }
+
+                // Fórmula: Lotes = Riesgo$ / (SL_pips × Valor/pip)
+                const lots = riskMoney / (slPips * pipValue);
+                document.getElementById('risk-lots').innerText = isFinite(lots) && lots > 0 ? lots.toFixed(2) : '0.00';
+                document.getElementById('risk-lots-hint').innerText =
+                    `$${riskMoney.toFixed(2)} ÷ (${slPips.toFixed(1)} pips × $${pipValue}/pip)`;
+
+                // Verificación
+                const actualLoss = lots * slPips * pipValue;
+                const actualPct = bal > 0 ? (actualLoss / bal) * 100 : 0;
+                document.getElementById('verify-loss').innerText = `$${actualLoss.toFixed(2)}`;
+                document.getElementById('verify-pct').innerText = `${actualPct.toFixed(2)}%`;
+                document.getElementById('verify-formula').innerText =
+                    `${lots.toFixed(2)} lotes × ${slPips.toFixed(1)} pips × $${pipValue}/pip = $${actualLoss.toFixed(2)}`;
+
             } else {
-                document.getElementById('slider-container').classList.add('hidden');
-                // Convertir el valor ingresado por el usuario a pips
+                // ── MODO B: Lotaje conocido → calcular SL máximo ───────────────
+                const lots = parseFloat(document.getElementById('risk-lots-input').value) || 0;
+
+                // Fórmula: MaxSL_pips = Riesgo$ / (Lotes × Valor/pip)
+                const maxSlPips = lots > 0 && pipValue > 0 ? riskMoney / (lots * pipValue) : 0;
+
+                // Mostrar en la unidad activa
+                let displayVal, displayUnit;
                 switch (State.displayMode) {
-                    case 'pips':   slPips = Math.max(0.001, slInputRaw); break;
-                    case 'points': slPips = Math.max(0.001, slInputRaw / 10); break;
-                    case 'value':  slPips = Math.max(0.001, slInputRaw * (State.stats.pipMult || 10000)); break;
+                    case 'pips':   displayVal = maxSlPips.toFixed(1);  displayUnit = 'pips';  break;
+                    case 'points': displayVal = (maxSlPips * 10).toFixed(0); displayUnit = 'puntos'; break;
+                    case 'value':  displayVal = (maxSlPips / (State.stats?.pipMult || 10000)).toFixed(5); displayUnit = 'precio'; break;
                 }
+                document.getElementById('risk-max-sl').innerText = displayVal;
+                document.getElementById('risk-max-sl-unit').innerText = displayUnit;
+                document.getElementById('risk-max-sl-hint').innerText =
+                    `$${riskMoney.toFixed(2)} ÷ (${lots} lotes × $${pipValue}/pip) = ${maxSlPips.toFixed(1)} pips`;
+
+                // Verificación
+                const actualLoss = lots * maxSlPips * pipValue;
+                const actualPct = bal > 0 ? (actualLoss / bal) * 100 : 0;
+                document.getElementById('verify-loss').innerText = `$${actualLoss.toFixed(2)}`;
+                document.getElementById('verify-pct').innerText = `${actualPct.toFixed(2)}%`;
+                document.getElementById('verify-formula').innerText =
+                    `${lots} lotes × ${maxSlPips.toFixed(1)} pips × $${pipValue}/pip = $${actualLoss.toFixed(2)}`;
             }
-
-            // Actualizar etiqueta del SL
-            const slLabelMap = { pips: 'Pips', points: 'Puntos', value: 'Valor (precio)' };
-            document.getElementById('sl-mode-label').innerText = slLabelMap[State.displayMode];
-
-            const riskMoney = bal * (pct / 100);
-            const lotSize = riskMoney / (slPips * 10); // $10 por pip por lote estándar
-
-            document.getElementById('risk-money').innerText = `$${riskMoney.toFixed(2)}`;
-            document.getElementById('risk-lots').innerText = isFinite(lotSize) && lotSize > 0 ? lotSize.toFixed(2) : '0.00';
         }
 
         // ==========================================
@@ -777,14 +827,45 @@
 
         document.getElementById('btn-recalc-ind').addEventListener('click', renderAll);
 
-        // Eventos de Calculadora de Riesgo
-        ['risk-balance', 'risk-percent', 'risk-candle-idx', 'risk-strategy'].forEach(id => {
+        // Eventos de Calculadora de Riesgo — base
+        ['risk-balance', 'risk-percent', 'risk-pip-value'].forEach(id => {
             document.getElementById(id).addEventListener('input', calcRisk);
         });
 
-        // Si el usuario edita el SL manualmente, cambiar estrategia a 'manual'
+        // Modo A: inputs
+        ['risk-candle-idx', 'risk-strategy'].forEach(id => {
+            document.getElementById(id)?.addEventListener('input', calcRisk);
+        });
+
+        // Si el usuario edita el SL manualmente → estrategia manual
         document.getElementById('risk-sl').addEventListener('input', () => {
             document.getElementById('risk-strategy').value = 'manual';
+            calcRisk();
+        });
+
+        // Modo B: input de lotaje
+        document.getElementById('risk-lots-input').addEventListener('input', calcRisk);
+
+        // Toggle de modo de calculadora
+        document.getElementById('calc-mode-sl-to-lots').addEventListener('click', () => {
+            State.calcMode = 'sl-to-lots';
+            document.getElementById('calc-mode-sl-to-lots').className = 'calc-mode-btn px-4 py-2 rounded text-sm font-semibold bg-blue-600 text-white transition-all';
+            document.getElementById('calc-mode-lots-to-sl').className = 'calc-mode-btn px-4 py-2 rounded text-sm font-semibold text-slate-400 hover:text-white hover:bg-slate-800 transition-all';
+            document.getElementById('calc-panel-sl-to-lots').classList.remove('hidden');
+            document.getElementById('calc-panel-lots-to-sl').classList.add('hidden');
+            document.getElementById('result-lots-panel').classList.remove('hidden');
+            document.getElementById('result-sl-panel').classList.add('hidden');
+            calcRisk();
+        });
+
+        document.getElementById('calc-mode-lots-to-sl').addEventListener('click', () => {
+            State.calcMode = 'lots-to-sl';
+            document.getElementById('calc-mode-lots-to-sl').className = 'calc-mode-btn px-4 py-2 rounded text-sm font-semibold bg-blue-600 text-white transition-all';
+            document.getElementById('calc-mode-sl-to-lots').className = 'calc-mode-btn px-4 py-2 rounded text-sm font-semibold text-slate-400 hover:text-white hover:bg-slate-800 transition-all';
+            document.getElementById('calc-panel-lots-to-sl').classList.remove('hidden');
+            document.getElementById('calc-panel-sl-to-lots').classList.add('hidden');
+            document.getElementById('result-sl-panel').classList.remove('hidden');
+            document.getElementById('result-lots-panel').classList.add('hidden');
             calcRisk();
         });
 

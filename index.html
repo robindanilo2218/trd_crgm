@@ -272,75 +272,143 @@
             <!-- Pestaña 5: CALCULADORA -->
             <div id="tab-riesgo" class="tab-content">
                 <div class="bg-slate-800 rounded-xl border border-slate-700 p-6">
-                    <h3 class="text-xl font-bold text-white mb-6 border-b border-slate-700 pb-4">Calculadora Automática
-                        de Riesgo</h3>
+                    <h3 class="text-xl font-bold text-white mb-2">Calculadora de Riesgo</h3>
+                    <p class="text-sm text-slate-400 mb-5">
+                        Fórmula base: <span class="font-mono text-blue-300">Pérdida = Lotes × SL (pips) × Valor/pip</span>
+                    </p>
 
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-10">
+                    <!-- Parámetros base -->
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5 p-4 bg-slate-900 rounded-xl border border-slate-700">
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1">💰 Capital del Depósito ($)</label>
+                            <input type="number" id="risk-balance" value="1000"
+                                class="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-blue-500 outline-none transition-colors">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1">⚠️ Riesgo Permitido (%)</label>
+                            <input type="number" id="risk-percent" value="1" step="0.1" min="0.01"
+                                class="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-blue-500 outline-none transition-colors">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1">💲 Valor por Pip / Lote Std ($)
+                                <span class="text-slate-600 ml-1 cursor-help" title="EURUSD ≈ $10, USDJPY ≈ $9.10, GBPUSD ≈ $10. Ajusta según tu broker e instrumento.">ⓘ</span>
+                            </label>
+                            <input type="number" id="risk-pip-value" value="10" step="0.01" min="0.001"
+                                class="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-blue-500 outline-none transition-colors">
+                        </div>
+                    </div>
+
+                    <!-- Dinero en riesgo -->
+                    <div class="mb-5 p-4 bg-red-950/40 border border-red-800/50 rounded-xl flex items-center justify-between">
+                        <div>
+                            <div class="text-xs text-slate-400 mb-1">Dinero en Riesgo</div>
+                            <div class="text-3xl font-bold text-red-400 font-mono" id="risk-money">$10.00</div>
+                        </div>
+                        <div class="text-right text-xs text-slate-500">
+                            <div>Capital × Riesgo%</div>
+                            <div id="risk-formula-hint" class="font-mono text-slate-600 mt-1">1000 × 1% = $10</div>
+                        </div>
+                    </div>
+
+                    <!-- Toggle de modo de cálculo -->
+                    <div class="flex mb-6 bg-slate-900 p-1 rounded-lg border border-slate-700 w-fit gap-0.5">
+                        <button id="calc-mode-sl-to-lots"
+                            class="calc-mode-btn px-4 py-2 rounded text-sm font-semibold bg-blue-600 text-white transition-all">
+                            📐 SL → Lotaje
+                        </button>
+                        <button id="calc-mode-lots-to-sl"
+                            class="calc-mode-btn px-4 py-2 rounded text-sm font-semibold text-slate-400 hover:text-white hover:bg-slate-800 transition-all">
+                            🔁 Lotaje → SL Máximo
+                        </button>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <!-- Columna izquierda: entradas -->
                         <div class="space-y-5">
-                            <div>
-                                <label class="block text-sm text-slate-400 mb-1">Capital del Depósito ($)</label>
-                                <input type="number" id="risk-balance" value="1000"
-                                    class="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-2 text-white">
-                            </div>
-                            <div>
-                                <label class="block text-sm text-slate-400 mb-1">Riesgo Permitido (%)</label>
-                                <input type="number" id="risk-percent" value="1" step="0.1"
-                                    class="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-2 text-white">
-                            </div>
 
-                            <!-- Estrategia de SL -->
-                            <div class="pt-4 border-t border-slate-700">
-                                <label class="block text-sm text-slate-400 mb-1">Estrategia de Stop Loss (Base de
-                                    cálculo)</label>
-                                <select id="risk-strategy"
-                                    class="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-2 text-white outline-none focus:border-blue-500 transition-colors">
-                                    <option value="vela">Basado en una Vela Específica</option>
-                                    <option value="manual">Entrada Manual</option>
-                                    <optgroup label="Datos Globales (Estadística de Velas)">
-                                        <option value="pos_q1">Q1 (25%) Alcista</option>
-                                        <option value="pos_q2">Mediana Alcista</option>
-                                        <option value="pos_q3">Q3 (75%) Alcista</option>
-                                        <option value="neg_q1">Q1 (25%) Bajista</option>
-                                        <option value="neg_q2">Mediana Bajista</option>
-                                        <option value="neg_q3">Q3 (75%) Bajista</option>
-                                    </optgroup>
-                                    <optgroup label="Indicadores">
-                                        <option value="atr">Volatilidad General (ATR Actual)</option>
-                                    </optgroup>
-                                </select>
-                            </div>
+                            <!-- MODO A: SL → Lotes -->
+                            <div id="calc-panel-sl-to-lots">
+                                <div class="mb-4">
+                                    <label class="block text-sm text-slate-400 mb-1">Estrategia de Stop Loss</label>
+                                    <select id="risk-strategy"
+                                        class="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-2 text-white outline-none focus:border-blue-500 transition-colors text-sm">
+                                        <option value="vela">Basado en una Vela Específica</option>
+                                        <option value="manual">Entrada Manual</option>
+                                        <optgroup label="Datos Globales (Estadística de Velas)">
+                                            <option value="pos_q1">Q1 (25%) Alcista</option>
+                                            <option value="pos_q2">Mediana Alcista</option>
+                                            <option value="pos_q3">Q3 (75%) Alcista</option>
+                                            <option value="neg_q1">Q1 (25%) Bajista</option>
+                                            <option value="neg_q2">Mediana Bajista</option>
+                                            <option value="neg_q3">Q3 (75%) Bajista</option>
+                                        </optgroup>
+                                        <optgroup label="Indicadores">
+                                            <option value="atr">Volatilidad General (ATR Actual)</option>
+                                        </optgroup>
+                                    </select>
+                                </div>
 
-                            <!-- Selector de vela (visible solo si estrategia es vela) -->
-                            <div id="slider-container">
-                                <label class="block text-sm text-slate-400 mb-1">Seleccionar Vela Histórica
-                                    (Índice)</label>
-                                <input type="range" id="risk-candle-idx" min="0" max="0" value="0"
-                                    class="w-full accent-blue-500">
-                                <div class="text-xs text-slate-500 flex justify-between mt-1">
-                                    <span>Más antigua</span>
-                                    <span id="risk-candle-label">Vela #0</span>
+                                <!-- Slider de vela -->
+                                <div id="slider-container" class="mb-4">
+                                    <label class="block text-sm text-slate-400 mb-1">Seleccionar Vela Histórica (Índice)</label>
+                                    <input type="range" id="risk-candle-idx" min="0" max="0" value="0"
+                                        class="w-full accent-blue-500">
+                                    <div class="text-xs text-slate-500 flex justify-between mt-1">
+                                        <span>Más antigua</span>
+                                        <span id="risk-candle-label">Vela #0</span>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label class="block text-sm text-slate-400 mb-1">Stop Loss (<span id="sl-mode-label">Pips</span>)</label>
+                                    <input type="number" id="risk-sl" value="0" step="0.1"
+                                        class="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-2 text-blue-400 font-mono text-lg focus:border-blue-500 outline-none transition-colors">
+                                    <p class="text-xs text-slate-500 mt-1" id="sl-pips-equiv"></p>
                                 </div>
                             </div>
 
-                            <div>
-                                <label class="block text-sm text-slate-400 mb-1">Stop Loss Final (<span id="sl-mode-label">Pips</span>)</label>
-                                <input type="number" id="risk-sl" value="0" step="0.1"
-                                    class="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-2 text-blue-400 font-mono focus:border-blue-500 transition-colors">
+                            <!-- MODO B: Lotes → SL máximo -->
+                            <div id="calc-panel-lots-to-sl" class="hidden">
+                                <label class="block text-sm text-slate-400 mb-1">Lotaje a Operar</label>
+                                <input type="number" id="risk-lots-input" value="1.00" step="0.01" min="0.001"
+                                    class="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-2 text-green-400 font-mono text-lg focus:border-blue-500 outline-none transition-colors">
+                                <p class="text-xs text-slate-500 mt-1">Ingresa el lotaje deseado → se calculará cuántos pips de SL puedes permitirte.</p>
                             </div>
                         </div>
 
-                        <div
-                            class="bg-slate-900 rounded-xl p-8 border border-slate-700 flex flex-col justify-center text-center relative overflow-hidden">
-                            <h4 class="text-slate-400 font-medium mb-6">Plan Sugerido</h4>
-                            <div class="mb-6">
-                                <div class="text-sm text-slate-500">Capital en Riesgo Exacto</div>
-                                <div class="text-4xl font-bold text-red-400" id="risk-money">$10.00</div>
-                            </div>
-                            <div>
-                                <div class="text-sm text-slate-500">Lotaje Estándar a Operar</div>
-                                <div class="text-6xl font-black text-green-400 drop-shadow-[0_0_15px_rgba(74,222,128,0.2)]"
+                        <!-- Columna derecha: resultado -->
+                        <div class="bg-slate-900 rounded-xl p-6 border border-slate-700 flex flex-col justify-center gap-5">
+
+                            <!-- RESULTADO A: Lotaje -->
+                            <div id="result-lots-panel" class="text-center">
+                                <div class="text-xs text-slate-500 uppercase tracking-wider mb-1">Lotaje a Operar</div>
+                                <div class="text-6xl font-black text-green-400 drop-shadow-[0_0_20px_rgba(74,222,128,0.3)] font-mono"
                                     id="risk-lots">0.00</div>
-                                <p class="text-xs text-slate-500 mt-3">Calculado a aprox. $10/pip por lote estándar.</p>
+                                <p class="text-xs text-slate-500 mt-2" id="risk-lots-hint"></p>
+                            </div>
+
+                            <!-- RESULTADO B: SL máximo -->
+                            <div id="result-sl-panel" class="text-center hidden">
+                                <div class="text-xs text-slate-500 uppercase tracking-wider mb-1">SL Máximo Permitido</div>
+                                <div class="text-5xl font-black text-blue-400 drop-shadow-[0_0_20px_rgba(96,165,250,0.3)] font-mono"
+                                    id="risk-max-sl">0.0</div>
+                                <div class="text-sm text-slate-500 mt-1" id="risk-max-sl-unit">pips</div>
+                                <p class="text-xs text-slate-600 mt-2" id="risk-max-sl-hint"></p>
+                            </div>
+
+                            <!-- Verificación -->
+                            <div class="border-t border-slate-700 pt-4 space-y-2 text-sm">
+                                <div class="flex justify-between text-slate-400">
+                                    <span>Pérdida si toca SL:</span>
+                                    <span class="font-mono text-red-400" id="verify-loss">$0.00</span>
+                                </div>
+                                <div class="flex justify-between text-slate-400">
+                                    <span>% del capital:</span>
+                                    <span class="font-mono" id="verify-pct">0.00%</span>
+                                </div>
+                                <div class="text-xs font-mono bg-slate-800 rounded p-2 text-slate-500 mt-2 leading-relaxed" id="verify-formula">
+                                    Lotes × SL × Valor/pip = Pérdida
+                                </div>
                             </div>
                         </div>
                     </div>
