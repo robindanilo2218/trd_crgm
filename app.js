@@ -947,6 +947,29 @@
             if (newWorker) newWorker.postMessage({ action: 'skipWaiting' });
         });
 
+        // Easter Egg: Forzar Actualización con 3 clicks en la versión
+        let versionClicks = 0;
+        let versionClickTimer;
+        document.getElementById('app-version-label')?.addEventListener('click', () => {
+            versionClicks++;
+            if (versionClicks >= 3) {
+                alert('Forzando actualización de la PWA...');
+                if ('serviceWorker' in navigator) {
+                    navigator.serviceWorker.getRegistrations().then(regs => {
+                        for (let reg of regs) {
+                            reg.unregister();
+                        }
+                    }).then(() => {
+                        window.location.reload(true);
+                    });
+                } else {
+                    window.location.reload(true);
+                }
+            }
+            clearTimeout(versionClickTimer);
+            versionClickTimer = setTimeout(() => versionClicks = 0, 1000);
+        });
+
         // Display Mode Buttons
         document.querySelectorAll('.display-mode-btn').forEach(btn => {
             btn.addEventListener('click', () => {
