@@ -795,6 +795,83 @@
                 rrInput.value = rr.toFixed(2);
                 document.getElementById('risk-profit-money').innerText = `$${(riskMoney * rr).toFixed(2)}`;
             }
+            
+            updateBotPanel();
+        }
+
+        // ==========================================
+        // 7. BOT / EJECUCIÓN PRO
+        // ==========================================
+        function updateBotPanel() {
+            if (!document.getElementById('bot-display-lots')) return;
+            const lots = State.currentLots || 0;
+            const slDisp = document.getElementById('risk-sl').value || '0';
+            const tpDisp = document.getElementById('risk-tp-input').value || '0';
+            
+            document.getElementById('bot-display-lots').innerText = lots.toFixed(2);
+            document.getElementById('bot-display-sl').innerHTML = `${slDisp} <span class="text-xs text-slate-500">${document.getElementById('sl-mode-label').innerText}</span>`;
+            document.getElementById('bot-display-tp').innerHTML = `${tpDisp} <span class="text-xs text-slate-500">${document.getElementById('tp-mode-label').innerText}</span>`;
+        }
+
+        function logMensajeBot(mensaje) {
+            const consola = document.getElementById('bot-consola');
+            if (!consola) return;
+            const tiempo = new Date().toLocaleTimeString();
+            consola.innerHTML += `<div><span class="text-slate-500">[${tiempo}]</span> ${mensaje}</div>`;
+            consola.scrollTop = consola.scrollHeight;
+        }
+
+        async function abrirOperacionEURUSD() {
+            const symbol = "EURUSD";
+            const lots = State.currentLots || 0;
+            
+            if (lots <= 0) {
+                logMensajeBot(`<span class="text-red-400">❌ Error: El lotaje debe ser mayor a 0. Ajusta la calculadora de riesgo.</span>`);
+                return;
+            }
+
+            logMensajeBot(`Iniciando evaluación algorítmica para ${symbol}...`);
+
+            try {
+                // PASO A: Simular obtención de precio
+                logMensajeBot("Conectando con el broker para obtener el precio actual...");
+                await new Promise(resolve => setTimeout(resolve, 800)); // Simulate latency
+                
+                const precioCompraAsk = 1.1050; // Precio simulado
+                logMensajeBot(`Precio Ask actual recibido: <span class="text-white">${precioCompraAsk}</span>`);
+
+                // PASO B: Calcular SL y TP exactos basado en pips
+                // Obtenemos los pips reales, independientemente del modo de visualización
+                const slPips = State.currentSlPips || 0;
+                const rr = parseFloat(document.getElementById('risk-rr-input').value) || 0;
+                const tpPips = slPips * rr;
+
+                const precioSL = precioCompraAsk - (slPips * 0.0001);
+                const precioTP = precioCompraAsk + (tpPips * 0.0001);
+
+                const ordenDeCompra = {
+                    instrument: symbol,
+                    units: lots * 100000, 
+                    type: "MARKET",               
+                    side: "BUY",                  
+                    stopLoss: precioSL.toFixed(5),
+                    takeProfit: precioTP.toFixed(5)
+                };
+
+                logMensajeBot("Condiciones óptimas. Enviando orden de mercado:");
+                logMensajeBot(`<span class="text-slate-400">${JSON.stringify(ordenDeCompra)}</span>`);
+                
+                await new Promise(resolve => setTimeout(resolve, 1200)); // Simulate API call
+
+                // PASO D: Confirmación simulada
+                const ticketSimulado = Math.floor(Math.random() * 1000000);
+                logMensajeBot(`<span class="text-emerald-400">✅ Éxito. Operación abierta. Ticket: #${ticketSimulado}</span>`);
+                logMensajeBot(`<span class="text-blue-300">-> SL fijado en: ${precioSL.toFixed(5)}</span>`);
+                logMensajeBot(`<span class="text-emerald-300">-> TP fijado en: ${precioTP.toFixed(5)}</span>`);
+
+            } catch (error) {
+                logMensajeBot(`<span class="text-red-400">❌ Error crítico: ${error.message}</span>`);
+            }
         }
 
         // ==========================================
@@ -912,6 +989,9 @@
         // Proyección TP
         document.getElementById('risk-rr-input').addEventListener('input', () => calcTPProj('rr'));
         document.getElementById('risk-tp-input').addEventListener('input', () => calcTPProj('tp'));
+
+        // Bot de Trading
+        document.getElementById('btnEjecutarBot')?.addEventListener('click', abrirOperacionEURUSD);
 
         // Toggle de modo de calculadora
         document.getElementById('calc-mode-sl-to-lots').addEventListener('click', () => {

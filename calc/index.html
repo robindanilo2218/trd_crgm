@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bot de Trading EUR/USD</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            padding: 20px;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .panel {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        button {
+            background-color: #28a745;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            width: 100%;
+        }
+
+        button:hover {
+            background-color: #218838;
+        }
+
+        #consola {
+            background: #1e1e1e;
+            color: #00ff00;
+            padding: 15px;
+            border-radius: 4px;
+            margin-top: 20px;
+            height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="panel">
+        <h2>Panel de Trading Manual/Algorítmico</h2>
+        <p>Par: <strong>EUR/USD</strong> | Lotes: <strong>0.01</strong></p>
+        <button id="btnEjecutar">Ejecutar Algoritmo (Comprar)</button>
+
+        <div id="consola">Esperando órdenes...<br></div>
+    </div>
+
+    <script>
+        // ==========================================
+        // 1. CONFIGURACIÓN DEL BROKER (Parámetros)
+        // ==========================================
+        const API_URL = "https://api.tu-broker.com/v1"; // Cambia esto por la URL de tu broker
+        const API_KEY = "TU_CLAVE_DE_API_AQUI";         // Tu token de acceso
+
+        // Función auxiliar para imprimir mensajes en la pantalla
+        function logMensaje(mensaje) {
+            const consola = document.getElementById('consola');
+            const tiempo = new Date().toLocaleTimeString();
+            consola.innerHTML += `[${tiempo}] ${mensaje}<br>`;
+            consola.scrollTop = consola.scrollHeight; // Auto-scroll hacia abajo
+            console.log(mensaje);
+        }
+
+        // ==========================================
+        // 2. LÓGICA DEL ALGORITMO
+        // ==========================================
+        async function abrirOperacionEURUSD() {
+            // Parámetros de la operación [cite: 4, 5]
+            const symbol = "EURUSD";
+            const volumenLotes = 0.01;
+            const stopLossPips = 30;
+            const takeProfitPips = 60;
+
+            logMensaje(`Iniciando evaluación algorítmica para ${symbol}...`);
+
+            try {
+                // PASO A: Obtener el precio actual (El "Gatillo" o validación previa) [cite: 6]
+                logMensaje("Conectando con el broker para obtener el precio actual...");
+
+                /* * NOTA: Descomenta estas líneas cuando tengas la API real. 
+                 * Por ahora, simularemos que el precio actual es 1.1050 para que el código no falle de inmediato.
+                 *
+                 * const precioResponse = await fetch(`${API_URL}/prices?symbol=${symbol}`, {
+                 * headers: { 'Authorization': `Bearer ${API_KEY}` }
+                 * });
+                 * if (!precioResponse.ok) throw new Error("Error de conexión o mercado cerrado.");
+                 * const dataPrecio = await precioResponse.json();
+                 * const precioCompraAsk = dataPrecio.ask; 
+                 */
+
+                const precioCompraAsk = 1.1050; // Precio simulado
+                logMensaje(`Precio Ask actual recibido: ${precioCompraAsk}`);
+
+                // PASO B: Calcular gestión de riesgo (1 pip = 0.0001)
+                const precioSL = precioCompraAsk - (stopLossPips * 0.0001);
+                const precioTP = precioCompraAsk + (takeProfitPips * 0.0001);
+
+                // PASO C: Preparar la orden para enviar al broker
+                const ordenDeCompra = {
+                    instrument: symbol,
+                    units: volumenLotes * 100000,
+                    type: "MARKET",
+                    side: "BUY",
+                    stopLoss: precioSL.toFixed(5),
+                    takeProfit: precioTP.toFixed(5)
+                };
+
+                logMensaje("Condiciones óptimas. Enviando orden de mercado...");
+
+                // PASO D: Ejecutar la orden [cite: 9]
+                /* * NOTA: Descomenta el bloque Fetch cuando tengas tu API.
+                 *
+                 * const ordenResponse = await fetch(`${API_URL}/orders`, {
+                 * method: 'POST',
+                 * headers: {
+                 * 'Authorization': `Bearer ${API_KEY}`,
+                 * 'Content-Type': 'application/json'
+                 * },
+                 * body: JSON.stringify(ordenDeCompra)
+                 * });
+                 * const resultado = await ordenResponse.json();
+                 * if (!ordenResponse.ok) throw new Error(resultado.errorMessage || "Orden rechazada");
+                 */
+
+                // Simulando la respuesta exitosa del broker (Confirmación) [cite: 10]
+                const ticketSimulado = Math.floor(Math.random() * 1000000);
+                logMensaje(`<span style="color: #00ff00;">✅ Éxito. Operación abierta. Ticket: #${ticketSimulado}</span>`);
+                logMensaje(`-> SL fijado en: ${precioSL.toFixed(5)}`);
+                logMensaje(`-> TP fijado en: ${precioTP.toFixed(5)}`);
+
+            } catch (error) {
+                // Gestión de Errores (para que la página web no colapse) [cite: 13, 14]
+                logMensaje(`<span style="color: #ff4444;">❌ Error crítico: ${error.message}</span>`);
+            }
+        }
+
+        // ==========================================
+        // 3. CONECTAR EL BOTÓN A LA FUNCIÓN
+        // ==========================================
+        document.getElementById('btnEjecutar').addEventListener('click', abrirOperacionEURUSD);
+
+    </script>
+</body>
+
+</html>

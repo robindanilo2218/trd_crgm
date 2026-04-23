@@ -58,6 +58,10 @@
                 class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all text-slate-400 hover:bg-slate-800 hover:text-slate-200">
                 🛡️ Calculadora de Riesgo
             </button>
+            <button data-target="tab-bot"
+                class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all text-slate-400 hover:bg-slate-800 hover:text-slate-200">
+                🤖 Bot / Ejecución Pro
+            </button>
         </nav>
 
         <!-- Archivos Guardados (IndexedDB) -->
@@ -452,6 +456,46 @@
                                 </div>
                             </div>
                         </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pestaña 6: BOT / EJECUCIÓN PRO -->
+            <div id="tab-bot" class="tab-content">
+                <div class="bg-slate-800 rounded-xl border border-slate-700 p-6">
+                    <h3 class="text-xl font-bold text-white mb-2">Terminal de Ejecución Pro</h3>
+                    <p class="text-sm text-slate-400 mb-5">
+                        Ejecuta operaciones utilizando los parámetros exactos calculados en la Calculadora de Riesgo.
+                    </p>
+
+                    <div class="bg-slate-900 border border-slate-700 rounded-xl p-6 mb-6 flex flex-col lg:flex-row gap-6 items-center justify-between">
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-6 w-full">
+                            <div>
+                                <div class="text-xs text-slate-400 uppercase tracking-wider mb-1">Activo</div>
+                                <div class="text-xl font-bold text-white">EUR/USD</div>
+                            </div>
+                            <div>
+                                <div class="text-xs text-slate-400 uppercase tracking-wider mb-1">Lotes a Abrir</div>
+                                <div class="text-xl font-bold text-blue-400 font-mono" id="bot-display-lots">0.00</div>
+                            </div>
+                            <div>
+                                <div class="text-xs text-slate-400 uppercase tracking-wider mb-1">Stop Loss</div>
+                                <div class="text-xl text-red-400 font-mono" id="bot-display-sl">0.0 <span class="text-xs text-slate-500">pips</span></div>
+                            </div>
+                            <div>
+                                <div class="text-xs text-slate-400 uppercase tracking-wider mb-1">Take Profit</div>
+                                <div class="text-xl text-emerald-400 font-mono" id="bot-display-tp">0.0 <span class="text-xs text-slate-500">pips</span></div>
+                            </div>
+                        </div>
+                        <button id="btnEjecutarBot" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-4 px-8 rounded-lg shadow-lg transition-colors w-full lg:w-auto shrink-0 whitespace-nowrap flex items-center justify-center gap-2">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                            Ejecutar Orden
+                        </button>
+                    </div>
+
+                    <!-- Terminal -->
+                    <div class="bg-black/90 rounded-xl border border-slate-700 p-4 font-mono text-sm h-72 overflow-y-auto" id="bot-consola">
+                        <div class="text-slate-500 mb-3">TradeStats Algo Engine v1.0. Conectando... Listo para recibir órdenes.</div>
                     </div>
                 </div>
             </div>
