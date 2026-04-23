@@ -1,584 +1,611 @@
 // ==========================================
-        // 1. REGISTRO SERVICE WORKER (Para Producción)
-        // ==========================================
-        let newWorker;
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('./sw.js').then(reg => {
-                console.log('SW Registrado', reg.scope);
-                reg.addEventListener('updatefound', () => {
-                    newWorker = reg.installing;
-                    newWorker.addEventListener('statechange', () => {
-                        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                            document.getElementById('btn-update-app')?.classList.remove('hidden');
-                        }
-                    });
-                });
-            }).catch(err => console.warn('SW no encontrado, online mode.'));
-
-            let refreshing;
-            navigator.serviceWorker.addEventListener('controllerchange', () => {
-                if (refreshing) return;
-                window.location.reload();
-                refreshing = true;
+// 1. REGISTRO SERVICE WORKER (Para Producción)
+// ==========================================
+let newWorker;
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('./sw.js').then(reg => {
+        console.log('SW Registrado', reg.scope);
+        reg.addEventListener('updatefound', () => {
+            newWorker = reg.installing;
+            newWorker.addEventListener('statechange', () => {
+                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                    document.getElementById('btn-update-app')?.classList.remove('hidden');
+                }
             });
+        });
+    }).catch(err => console.warn('SW no encontrado, online mode.'));
+
+    let refreshing;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (refreshing) return;
+        window.location.reload();
+        refreshing = true;
+    });
+}
+
+// ==========================================
+// 1.5 INSTALACIÓN DE LA PWA (Android / Desktop)
+// ==========================================
+let deferredPrompt;
+const btnInstall = document.getElementById('btn-install-app');
+
+window.addEventListener('beforeinstallprompt', (e) => {
+    // Evita que Chrome en Android muestre el mini-infobar nativo
+    e.preventDefault();
+    // Guarda el evento para dispararlo más tarde
+    deferredPrompt = e;
+    // Muestra tu botón personalizado en la UI
+    if (btnInstall) btnInstall.classList.remove('hidden');
+});
+
+// Lógica al tocar el botón en el celular o PC
+if (btnInstall) {
+    btnInstall.addEventListener('click', async () => {
+        if (!deferredPrompt) return;
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        console.log(`Instalación ${outcome}`);
+        deferredPrompt = null;
+        btnInstall.classList.add('hidden');
+    });
+}
+
+// ==========================================
+// 2. BASE DE DATOS LOCAL (IndexedDB Vanilla)
+// ==========================================
+const DB = {
+    name: 'TradeStatsVanillaDB',
+    version: 1,
+    store: 'datasets',
+    open() {
+        return new Promise((resolve, reject) => {
+            const req = indexedDB.open(this.name, this.version);
+            req.onupgradeneeded = e => {
+                const db = e.target.result;
+                if (!db.objectStoreNames.contains(this.store)) db.createObjectStore(this.store, { keyPath: 'id' });
+            };
+            req.onsuccess = () => resolve(req.result);
+            req.onerror = () => reject(req.error);
+        });
+    },
+    async save(dataset) {
+        const db = await this.open();
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction(this.store, 'readwrite');
+            tx.objectStore(this.store).put(dataset);
+            tx.oncomplete = resolve;
+            tx.onerror = reject;
+        });
+    },
+    async getAll() {
+        const db = await this.open();
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction(this.store, 'readonly');
+            const req = tx.objectStore(this.store).getAll();
+            req.onsuccess = () => resolve(req.result);
+            req.onerror = reject;
+        });
+    },
+    async delete(id) {
+        const db = await this.open();
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction(this.store, 'readwrite');
+            tx.objectStore(this.store).delete(id);
+            tx.oncomplete = resolve;
+            tx.onerror = reject;
+        });
+    }
+};
+
+// ==========================================
+// FULLSCREEN TOGGLE
+// ==========================================
+window.toggleFullScreen = function () {
+    const btn = document.getElementById('btn-fullscreen');
+    if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => { });
+        if (btn) btn.innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 9V4H4m0 0v5m0-5l5 5M15 9V4h5m0 0v5m0-5l-5 5M9 15H4m0 0v5m0-5l5 5m6-5h5m0 0v5m0-5l-5 5"></path></svg>`;
+    } else {
+        document.exitFullscreen();
+        if (btn) btn.innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path></svg>`;
+    }
+};
+document.addEventListener('fullscreenchange', () => {
+    const btn = document.getElementById('btn-fullscreen');
+    if (!btn) return;
+    if (!document.fullscreenElement) {
+        btn.innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path></svg>`;
+    }
+});
+
+// ==========================================
+// 3. ESTADO DE LA APP Y MATEMÁTICAS
+// ==========================================
+const State = {
+    datasets: [],
+    activeId: null,
+    timeFilter: 'M1', // M1, H1, H4, D1
+    dateStart: null,
+    dateEnd: null,
+    processedData: [],
+    stats: null,
+    customColumns: [],
+    displayMode: 'pips' // 'pips' | 'points' | 'value'
+};
+
+// ==========================================
+// MODO DE VISUALIZACIÓN
+// ==========================================
+/**
+ * Convierte un delta de precio al modo activo y lo formatea.
+ * @param {number} rawDelta  - Diferencia de precio cruda (ej. close - open)
+ * @param {number} pipMult   - Multiplicador de pips (100 para JPY, 10000 para normal)
+ * @param {boolean} abs      - Si true retorna valor absoluto
+ * @returns {string}
+ */
+function formatVal(rawDelta, pipMult, abs = false) {
+    let v = abs ? Math.abs(rawDelta) : rawDelta;
+    switch (State.displayMode) {
+        case 'pips': return (v * pipMult).toFixed(1);
+        case 'points': return (v * pipMult * 10).toFixed(0);
+        case 'value': return v.toFixed(5);
+    }
+}
+
+function modeLabel() {
+    return { pips: 'pips', points: 'pts', value: 'valor' }[State.displayMode];
+}
+
+function modeDecimals() {
+    return { pips: 1, points: 0, value: 5 }[State.displayMode];
+}
+
+/** Convierte un valor ya-en-pips al modo activo (para datos post-computeStats) */
+function fromPips(pipValue) {
+    switch (State.displayMode) {
+        case 'pips': return pipValue.toFixed(1);
+        case 'points': return (pipValue * 10).toFixed(0);
+        case 'value': return (pipValue / (State.stats?.pipMult || 10000)).toFixed(5);
+    }
+}
+
+const MathUtils = {
+    quartiles(arr) {
+        if (!arr || arr.length === 0) return { min: 0, q1: 0, q2: 0, q3: 0, max: 0, count: 0 };
+        const s = [...arr].sort((a, b) => a - b);
+        return {
+            min: s[0],
+            q1: s[Math.floor(s.length * 0.25)],
+            q2: s[Math.floor(s.length * 0.50)], // Mediana
+            q3: s[Math.floor(s.length * 0.75)],
+            max: s[s.length - 1],
+            count: s.length
+        };
+    },
+    mode(arr) {
+        if (!arr || arr.length === 0) return 0;
+        let freq = {}, maxFreq = 0, mode = arr[0];
+        for (let v of arr) {
+            let r = Math.round(v * 10) / 10;
+            freq[r] = (freq[r] || 0) + 1;
+            if (freq[r] > maxFreq) { maxFreq = freq[r]; mode = r; }
+        }
+        return mode;
+    }
+};
+
+// ==========================================
+// 4. LÓGICA PRINCIPAL (PARSER Y CÁLCULOS)
+// ==========================================
+function showLoader(text) {
+    document.getElementById('loader-text').innerText = text;
+    document.getElementById('loader').classList.add('active');
+}
+function hideLoader() { document.getElementById('loader').classList.remove('active'); }
+
+async function parseCSV(file) {
+    showLoader("Leyendo archivo...");
+    try {
+        const text = await file.text();
+        const delimiter = text.includes('\t') ? '\t' : ',';
+        const lines = text.split('\n').map(l => l.trim()).filter(l => l);
+
+        if (lines.length < 2) throw new Error("Archivo muy corto.");
+
+        let headers = [];
+        let iD = -1, iT = -1, iO = -1, iH = -1, iL = -1, iC = -1, iTV = -1, iV = -1, iS = -1;
+        let startIndex = 0;
+
+        const firstRowParts = lines[0].split(delimiter);
+        const hasHeaders = isNaN(parseFloat(firstRowParts[1]));
+
+        if (hasHeaders) {
+            headers = firstRowParts.map(h => h.replace(/<|>/g, '').toLowerCase());
+            iD = headers.findIndex(h => h === 'date' || h.includes('date') || h === 'd');
+            iT = headers.findIndex(h => h === 'time' || h.includes('time') || h === 't');
+            iO = headers.findIndex(h => h === 'open' || h.includes('open') || h === 'o');
+            iH = headers.findIndex(h => h === 'high' || h.includes('high') || h === 'h');
+            iL = headers.findIndex(h => h === 'low' || h.includes('low') || h === 'l');
+            iC = headers.findIndex(h => h === 'close' || h.includes('close') || h === 'c');
+            iTV = headers.findIndex(h => h === 'tickvol' || h.includes('tickvol') || h === 'tv');
+            iV = headers.findIndex(h => h === 'vol' || h === 'volume' || h === 'v');
+            iS = headers.findIndex(h => h === 'spread' || h.includes('spread') || h === 'sp');
+            startIndex = 1;
+        } else {
+            // Inferir columnas por cantidad
+            if (firstRowParts.length === 7) {
+                iD = 0; iT = -1; iO = 1; iH = 2; iL = 3; iC = 4; iTV = 5; iV = 6;
+            } else if (firstRowParts.length >= 8) {
+                iD = 0; iT = 1; iO = 2; iH = 3; iL = 4; iC = 5; iTV = 6; iV = 7; iS = 8;
+            } else {
+                // Fallback básico
+                iD = 0; iO = 1; iH = 2; iL = 3; iC = 4;
+            }
+            startIndex = 0;
         }
 
-        // ==========================================
-        // 2. BASE DE DATOS LOCAL (IndexedDB Vanilla)
-        // ==========================================
-        const DB = {
-            name: 'TradeStatsVanillaDB',
-            version: 1,
-            store: 'datasets',
-            open() {
-                return new Promise((resolve, reject) => {
-                    const req = indexedDB.open(this.name, this.version);
-                    req.onupgradeneeded = e => {
-                        const db = e.target.result;
-                        if (!db.objectStoreNames.contains(this.store)) db.createObjectStore(this.store, { keyPath: 'id' });
-                    };
-                    req.onsuccess = () => resolve(req.result);
-                    req.onerror = () => reject(req.error);
-                });
-            },
-            async save(dataset) {
-                const db = await this.open();
-                return new Promise((resolve, reject) => {
-                    const tx = db.transaction(this.store, 'readwrite');
-                    tx.objectStore(this.store).put(dataset);
-                    tx.oncomplete = resolve;
-                    tx.onerror = reject;
-                });
-            },
-            async getAll() {
-                const db = await this.open();
-                return new Promise((resolve, reject) => {
-                    const tx = db.transaction(this.store, 'readonly');
-                    const req = tx.objectStore(this.store).getAll();
-                    req.onsuccess = () => resolve(req.result);
-                    req.onerror = reject;
-                });
-            },
-            async delete(id) {
-                const db = await this.open();
-                return new Promise((resolve, reject) => {
-                    const tx = db.transaction(this.store, 'readwrite');
-                    tx.objectStore(this.store).delete(id);
-                    tx.oncomplete = resolve;
-                    tx.onerror = reject;
-                });
+        if (iO === -1 || iC === -1) throw new Error("Faltan columnas Open/Close");
+
+        const data = [];
+        for (let i = startIndex; i < lines.length; i++) {
+            const cols = lines[i].split(delimiter);
+            if (cols.length < 4) continue;
+
+            let dtStr = '';
+            if (iD !== -1 && iT !== -1) {
+                dtStr = `${cols[iD].replace(/\./g, '-')}T${cols[iT]}`;
+            } else if (iD !== -1) {
+                dtStr = cols[iD].replace(/\./g, '-');
+            } else {
+                dtStr = new Date().toISOString();
             }
+
+            const timestamp = new Date(dtStr).getTime();
+            if (isNaN(timestamp)) continue;
+
+            let row = {
+                datetime: timestamp,
+                open: parseFloat(cols[iO]),
+                high: parseFloat(cols[iH]),
+                low: parseFloat(cols[iL]),
+                close: parseFloat(cols[iC]),
+                tickvol: iTV !== -1 ? parseFloat(cols[iTV]) : 0,
+                vol: iV !== -1 ? parseFloat(cols[iV]) : 0,
+                spread: iS !== -1 ? parseFloat(cols[iS]) : 0
+            };
+
+            // Agregar columnas extra que no sean las básicas
+            headers.forEach((h, idx) => {
+                if (![iD, iT, iO, iH, iL, iC, iTV, iV, iS].includes(idx)) {
+                    row[h] = isNaN(cols[idx]) ? cols[idx] : parseFloat(cols[idx]);
+                }
+            });
+
+            data.push(row);
+        }
+
+        const ds = {
+            id: Date.now().toString(),
+            name: file.name,
+            data: data,
+            customColumns: [] // Para guardar las fórmulas agregadas por el usuario
         };
 
-        // ==========================================
-        // FULLSCREEN TOGGLE
-        // ==========================================
-        window.toggleFullScreen = function() {
-            const btn = document.getElementById('btn-fullscreen');
-            if (!document.fullscreenElement) {
-                document.documentElement.requestFullscreen().catch(() => {});
-                if (btn) btn.innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 9V4H4m0 0v5m0-5l5 5M15 9V4h5m0 0v5m0-5l-5 5M9 15H4m0 0v5m0-5l5 5m6-5h5m0 0v5m0-5l-5 5"></path></svg>`;
-            } else {
-                document.exitFullscreen();
-                if (btn) btn.innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path></svg>`;
-            }
-        };
-        document.addEventListener('fullscreenchange', () => {
-            const btn = document.getElementById('btn-fullscreen');
-            if (!btn) return;
-            if (!document.fullscreenElement) {
-                btn.innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path></svg>`;
-            }
+        await DB.save(ds);
+        await loadDatasets();
+        setActiveDataset(ds.id);
+    } catch (e) {
+        alert("Error: " + e.message);
+    }
+    hideLoader();
+}
+
+function processTimeframe() {
+    const ds = State.datasets.find(d => d.id === State.activeId);
+    if (!ds) return [];
+
+    let raw = ds.data;
+
+    if (State.dateStart) {
+        const sTime = new Date(State.dateStart + "T00:00:00").getTime();
+        raw = raw.filter(r => r.datetime >= sTime);
+    }
+    if (State.dateEnd) {
+        const eTime = new Date(State.dateEnd + "T23:59:59.999").getTime();
+        raw = raw.filter(r => r.datetime <= eTime);
+    }
+
+    if (State.timeFilter === 'M1') return [...raw];
+
+    const grouped = {};
+    for (let r of raw) {
+        const dateObj = new Date(r.datetime);
+        let key = 0;
+
+        const m = dateObj.getMinutes();
+        const h = dateObj.getHours();
+
+        switch (State.timeFilter) {
+            case 'M5':
+                dateObj.setMinutes(m - (m % 5), 0, 0);
+                break;
+            case 'M15':
+                dateObj.setMinutes(m - (m % 15), 0, 0);
+                break;
+            case 'M30':
+                dateObj.setMinutes(m - (m % 30), 0, 0);
+                break;
+            case 'H1':
+                dateObj.setMinutes(0, 0, 0);
+                break;
+            case 'H4':
+                dateObj.setHours(h - (h % 4), 0, 0, 0);
+                break;
+            case 'H6':
+                dateObj.setHours(h - (h % 6), 0, 0, 0);
+                break;
+            case 'H12':
+                dateObj.setHours(h - (h % 12), 0, 0, 0);
+                break;
+            case 'D1':
+                dateObj.setHours(0, 0, 0, 0);
+                break;
+            case 'W1':
+                const day = dateObj.getDay();
+                dateObj.setDate(dateObj.getDate() - day);
+                dateObj.setHours(0, 0, 0, 0);
+                break;
+            case 'MN':
+                dateObj.setDate(1);
+                dateObj.setHours(0, 0, 0, 0);
+                break;
+            case 'Y1':
+                dateObj.setMonth(0, 1);
+                dateObj.setHours(0, 0, 0, 0);
+                break;
+            case 'ALL':
+                dateObj.setTime(0);
+                break;
+        }
+
+        key = dateObj.getTime();
+
+        if (!grouped[key]) {
+            grouped[key] = { ...r, datetime: key, close: r.close };
+        } else {
+            grouped[key].high = Math.max(grouped[key].high, r.high);
+            grouped[key].low = Math.min(grouped[key].low, r.low);
+            grouped[key].close = r.close;
+            if (r.vol !== undefined) grouped[key].vol += r.vol;
+            if (r.tickvol !== undefined) grouped[key].tickvol += r.tickvol;
+            if (r.spread !== undefined) grouped[key].spread = Math.max(grouped[key].spread, r.spread);
+        }
+    }
+    return Object.values(grouped).sort((a, b) => a.datetime - b.datetime);
+}
+
+function calculateIndicators() {
+    let data = processTimeframe();
+    if (data.length === 0) return [];
+
+    const rsiP = parseInt(document.getElementById('input-rsi').value) || 14;
+    const atrP = parseInt(document.getElementById('input-atr').value) || 14;
+
+    // Calcular columnas calculadas personalizadas (Eval seguro)
+    const ds = State.datasets.find(d => d.id === State.activeId);
+    const formulas = ds?.customColumns || [];
+
+    let gains = 0, losses = 0, trSum = 0;
+
+    for (let i = 0; i < data.length; i++) {
+        // Fórmulas personalizadas
+        formulas.forEach(f => {
+            try {
+                const func = new Function(...Object.keys(data[i]), `return ${f.formula};`);
+                data[i][f.name] = func(...Object.values(data[i]));
+            } catch (e) { data[i][f.name] = null; }
         });
 
-        // ==========================================
-        // 3. ESTADO DE LA APP Y MATEMÁTICAS
-        // ==========================================
-        const State = {
-            datasets: [],
-            activeId: null,
-            timeFilter: 'M1', // M1, H1, H4, D1
-            dateStart: null,
-            dateEnd: null,
-            processedData: [],
-            stats: null,
-            customColumns: [],
-            displayMode: 'pips' // 'pips' | 'points' | 'value'
-        };
-
-        // ==========================================
-        // MODO DE VISUALIZACIÓN
-        // ==========================================
-        /**
-         * Convierte un delta de precio al modo activo y lo formatea.
-         * @param {number} rawDelta  - Diferencia de precio cruda (ej. close - open)
-         * @param {number} pipMult   - Multiplicador de pips (100 para JPY, 10000 para normal)
-         * @param {boolean} abs      - Si true retorna valor absoluto
-         * @returns {string}
-         */
-        function formatVal(rawDelta, pipMult, abs = false) {
-            let v = abs ? Math.abs(rawDelta) : rawDelta;
-            switch (State.displayMode) {
-                case 'pips':   return (v * pipMult).toFixed(1);
-                case 'points': return (v * pipMult * 10).toFixed(0);
-                case 'value':  return v.toFixed(5);
+        // RSI
+        if (i > 0) {
+            const chg = data[i].close - data[i - 1].close;
+            if (i <= rsiP) {
+                if (chg > 0) gains += chg; else losses -= chg;
+            }
+            if (i === rsiP) {
+                data[i].avgGain = gains / rsiP;
+                data[i].avgLoss = losses / rsiP;
+                let rs = data[i].avgLoss === 0 ? 100 : data[i].avgGain / data[i].avgLoss;
+                data[i].rsi = 100 - (100 / (1 + rs));
+            } else if (i > rsiP) {
+                let cG = chg > 0 ? chg : 0;
+                let cL = chg < 0 ? -chg : 0;
+                data[i].avgGain = ((data[i - 1].avgGain * (rsiP - 1)) + cG) / rsiP;
+                data[i].avgLoss = ((data[i - 1].avgLoss * (rsiP - 1)) + cL) / rsiP;
+                let rs = data[i].avgLoss === 0 ? 100 : data[i].avgGain / data[i].avgLoss;
+                data[i].rsi = 100 - (100 / (1 + rs));
             }
         }
 
-        function modeLabel() {
-            return { pips: 'pips', points: 'pts', value: 'valor' }[State.displayMode];
+        // ATR
+        if (i === 0) data[i].tr = data[i].high - data[i].low;
+        else {
+            const hl = data[i].high - data[i].low;
+            const hc = Math.abs(data[i].high - data[i - 1].close);
+            const lc = Math.abs(data[i].low - data[i - 1].close);
+            data[i].tr = Math.max(hl, hc, lc);
         }
 
-        function modeDecimals() {
-            return { pips: 1, points: 0, value: 5 }[State.displayMode];
-        }
+        if (i < atrP) trSum += data[i].tr;
+        else if (i === atrP) data[i].atr = trSum / atrP;
+        else data[i].atr = ((data[i - 1].atr * (atrP - 1)) + data[i].tr) / atrP;
+    }
 
-        /** Convierte un valor ya-en-pips al modo activo (para datos post-computeStats) */
-        function fromPips(pipValue) {
-            switch (State.displayMode) {
-                case 'pips':   return pipValue.toFixed(1);
-                case 'points': return (pipValue * 10).toFixed(0);
-                case 'value':  return (pipValue / (State.stats?.pipMult || 10000)).toFixed(5);
-            }
-        }
+    return data;
+}
 
-        const MathUtils = {
-            quartiles(arr) {
-                if (!arr || arr.length === 0) return { min: 0, q1: 0, q2: 0, q3: 0, max: 0, count: 0 };
-                const s = [...arr].sort((a, b) => a - b);
-                return {
-                    min: s[0],
-                    q1: s[Math.floor(s.length * 0.25)],
-                    q2: s[Math.floor(s.length * 0.50)], // Mediana
-                    q3: s[Math.floor(s.length * 0.75)],
-                    max: s[s.length - 1],
-                    count: s.length
-                };
-            },
-            mode(arr) {
-                if (!arr || arr.length === 0) return 0;
-                let freq = {}, maxFreq = 0, mode = arr[0];
-                for (let v of arr) {
-                    let r = Math.round(v * 10) / 10;
-                    freq[r] = (freq[r] || 0) + 1;
-                    if (freq[r] > maxFreq) { maxFreq = freq[r]; mode = r; }
-                }
-                return mode;
-            }
-        };
+function computeStats(data) {
+    if (!data || data.length === 0) return null;
 
-        // ==========================================
-        // 4. LÓGICA PRINCIPAL (PARSER Y CÁLCULOS)
-        // ==========================================
-        function showLoader(text) {
-            document.getElementById('loader-text').innerText = text;
-            document.getElementById('loader').classList.add('active');
-        }
-        function hideLoader() { document.getElementById('loader').classList.remove('active'); }
+    // Siempre almacenamos internamente en PIPS para facilitar la conversión
+    let pos = [], neg = [], rsi = [], atr = [], vol = [], hours = {};
+    const avgP = data[0].close;
+    const pipMult = (avgP < 200 && avgP > 10) ? 100 : 10000; // JPY o normal
 
-        async function parseCSV(file) {
-            showLoader("Leyendo archivo...");
-            try {
-                const text = await file.text();
-                const delimiter = text.includes('\t') ? '\t' : ',';
-                const lines = text.split('\n').map(l => l.trim()).filter(l => l);
+    for (let c of data) {
+        const dateObj = new Date(c.datetime);
+        const h = dateObj.getHours();
 
-                if (lines.length < 2) throw new Error("Archivo muy corto.");
+        const openCloseDist = (c.close - c.open) * pipMult;
+        const highLowDist = (c.high - c.low) * pipMult;
 
-                let headers = [];
-                let iD = -1, iT = -1, iO = -1, iH = -1, iL = -1, iC = -1, iTV = -1, iV = -1, iS = -1;
-                let startIndex = 0;
+        if (c.close >= c.open) pos.push(openCloseDist);
+        else neg.push(Math.abs(openCloseDist));
 
-                const firstRowParts = lines[0].split(delimiter);
-                const hasHeaders = isNaN(parseFloat(firstRowParts[1]));
+        if (c.rsi !== undefined) rsi.push(c.rsi);
+        if (c.atr !== undefined) atr.push(c.atr * pipMult);
+        vol.push(c.tickvol || c.vol || 0);
 
-                if (hasHeaders) {
-                    headers = firstRowParts.map(h => h.replace(/<|>/g, '').toLowerCase());
-                    iD = headers.findIndex(h => h === 'date' || h.includes('date') || h === 'd');
-                    iT = headers.findIndex(h => h === 'time' || h.includes('time') || h === 't');
-                    iO = headers.findIndex(h => h === 'open' || h.includes('open') || h === 'o');
-                    iH = headers.findIndex(h => h === 'high' || h.includes('high') || h === 'h');
-                    iL = headers.findIndex(h => h === 'low' || h.includes('low') || h === 'l');
-                    iC = headers.findIndex(h => h === 'close' || h.includes('close') || h === 'c');
-                    iTV = headers.findIndex(h => h === 'tickvol' || h.includes('tickvol') || h === 'tv');
-                    iV = headers.findIndex(h => h === 'vol' || h === 'volume' || h === 'v');
-                    iS = headers.findIndex(h => h === 'spread' || h.includes('spread') || h === 'sp');
-                    startIndex = 1;
-                } else {
-                    // Inferir columnas por cantidad
-                    if (firstRowParts.length === 7) {
-                        iD = 0; iT = -1; iO = 1; iH = 2; iL = 3; iC = 4; iTV = 5; iV = 6;
-                    } else if (firstRowParts.length >= 8) {
-                        iD = 0; iT = 1; iO = 2; iH = 3; iL = 4; iC = 5; iTV = 6; iV = 7; iS = 8;
-                    } else {
-                        // Fallback básico
-                        iD = 0; iO = 1; iH = 2; iL = 3; iC = 4;
-                    }
-                    startIndex = 0;
-                }
+        if (!hours[h]) hours[h] = { ranges: [], moves: [], pos: [], neg: [] };
+        hours[h].ranges.push(highLowDist);
+        hours[h].moves.push(Math.abs(openCloseDist));
 
-                if (iO === -1 || iC === -1) throw new Error("Faltan columnas Open/Close");
+        if (c.close >= c.open) hours[h].pos.push(openCloseDist);
+        else hours[h].neg.push(Math.abs(openCloseDist));
+    }
 
-                const data = [];
-                for (let i = startIndex; i < lines.length; i++) {
-                    const cols = lines[i].split(delimiter);
-                    if (cols.length < 4) continue;
+    const procHours = Object.keys(hours).map(k => ({
+        hour: parseInt(k),
+        avgRange: hours[k].ranges.reduce((a, b) => a + b, 0) / hours[k].ranges.length,
+        quartiles: MathUtils.quartiles(hours[k].moves),
+        mode: MathUtils.mode(hours[k].moves),
+        posStats: MathUtils.quartiles(hours[k].pos),
+        negStats: MathUtils.quartiles(hours[k].neg)
+    })).sort((a, b) => a.hour - b.hour);
 
-                    let dtStr = '';
-                    if (iD !== -1 && iT !== -1) {
-                        dtStr = `${cols[iD].replace(/\./g, '-')}T${cols[iT]}`;
-                    } else if (iD !== -1) {
-                        dtStr = cols[iD].replace(/\./g, '-');
-                    } else {
-                        dtStr = new Date().toISOString();
-                    }
+    return {
+        pipMult,
+        // Almacenados en PIPS internamente
+        pos: MathUtils.quartiles(pos), modePos: MathUtils.mode(pos),
+        neg: MathUtils.quartiles(neg), modeNeg: MathUtils.mode(neg),
+        rsi: MathUtils.quartiles(rsi),
+        atr: MathUtils.quartiles(atr),
+        vol: MathUtils.quartiles(vol),
+        hours: procHours
+    };
+}
 
-                    const timestamp = new Date(dtStr).getTime();
-                    if (isNaN(timestamp)) continue;
+// ==========================================
+// 5. RENDERIZADO DE VISTAS
+// ==========================================
+function renderAll() {
+    showLoader("Actualizando Vistas...");
+    setTimeout(() => {
+        const data = calculateIndicators();
+        State.processedData = data;
+        State.stats = computeStats(data);
 
-                    let row = {
-                        datetime: timestamp,
-                        open: parseFloat(cols[iO]),
-                        high: parseFloat(cols[iH]),
-                        low: parseFloat(cols[iL]),
-                        close: parseFloat(cols[iC]),
-                        tickvol: iTV !== -1 ? parseFloat(cols[iTV]) : 0,
-                        vol: iV !== -1 ? parseFloat(cols[iV]) : 0,
-                        spread: iS !== -1 ? parseFloat(cols[iS]) : 0
-                    };
+        renderSidebar();
+        renderTable(data);
+        renderStatsTabs();
+        renderSplitView();
+        updateRiskMax();
 
-                    // Agregar columnas extra que no sean las básicas
-                    headers.forEach((h, idx) => {
-                        if (![iD, iT, iO, iH, iL, iC, iTV, iV, iS].includes(idx)) {
-                            row[h] = isNaN(cols[idx]) ? cols[idx] : parseFloat(cols[idx]);
-                        }
-                    });
+        hideLoader();
+    }, 50);
+}
 
-                    data.push(row);
-                }
+function renderSidebar() {
+    const list = document.getElementById('saved-files-list');
+    list.innerHTML = '';
 
-                const ds = {
-                    id: Date.now().toString(),
-                    name: file.name,
-                    data: data,
-                    customColumns: [] // Para guardar las fórmulas agregadas por el usuario
-                };
+    if (State.datasets.length === 0) {
+        list.innerHTML = '<li class="text-slate-500 italic text-xs">Ningún archivo cargado</li>';
+        document.getElementById('active-dataset-name').innerText = 'Ninguno';
+        document.getElementById('btn-add-calc').classList.add('hidden');
+        document.getElementById('data-availability').classList.add('hidden');
+        return;
+    }
 
-                await DB.save(ds);
-                await loadDatasets();
-                setActiveDataset(ds.id);
-            } catch (e) {
-                alert("Error: " + e.message);
-            }
-            hideLoader();
-        }
-
-        function processTimeframe() {
-            const ds = State.datasets.find(d => d.id === State.activeId);
-            if (!ds) return [];
-
-            let raw = ds.data;
-            
-            if (State.dateStart) {
-                const sTime = new Date(State.dateStart + "T00:00:00").getTime();
-                raw = raw.filter(r => r.datetime >= sTime);
-            }
-            if (State.dateEnd) {
-                const eTime = new Date(State.dateEnd + "T23:59:59.999").getTime();
-                raw = raw.filter(r => r.datetime <= eTime);
-            }
-
-            if (State.timeFilter === 'M1') return [...raw];
-
-            const grouped = {};
-            for (let r of raw) {
-                const dateObj = new Date(r.datetime);
-                let key = 0;
-
-                const m = dateObj.getMinutes();
-                const h = dateObj.getHours();
-
-                switch (State.timeFilter) {
-                    case 'M5':
-                        dateObj.setMinutes(m - (m % 5), 0, 0);
-                        break;
-                    case 'M15':
-                        dateObj.setMinutes(m - (m % 15), 0, 0);
-                        break;
-                    case 'M30':
-                        dateObj.setMinutes(m - (m % 30), 0, 0);
-                        break;
-                    case 'H1':
-                        dateObj.setMinutes(0, 0, 0);
-                        break;
-                    case 'H4':
-                        dateObj.setHours(h - (h % 4), 0, 0, 0);
-                        break;
-                    case 'H6':
-                        dateObj.setHours(h - (h % 6), 0, 0, 0);
-                        break;
-                    case 'H12':
-                        dateObj.setHours(h - (h % 12), 0, 0, 0);
-                        break;
-                    case 'D1':
-                        dateObj.setHours(0, 0, 0, 0);
-                        break;
-                    case 'W1':
-                        const day = dateObj.getDay();
-                        dateObj.setDate(dateObj.getDate() - day);
-                        dateObj.setHours(0, 0, 0, 0);
-                        break;
-                    case 'MN':
-                        dateObj.setDate(1);
-                        dateObj.setHours(0, 0, 0, 0);
-                        break;
-                    case 'Y1':
-                        dateObj.setMonth(0, 1);
-                        dateObj.setHours(0, 0, 0, 0);
-                        break;
-                    case 'ALL':
-                        dateObj.setTime(0);
-                        break;
-                }
-
-                key = dateObj.getTime();
-
-                if (!grouped[key]) {
-                    grouped[key] = { ...r, datetime: key, close: r.close };
-                } else {
-                    grouped[key].high = Math.max(grouped[key].high, r.high);
-                    grouped[key].low = Math.min(grouped[key].low, r.low);
-                    grouped[key].close = r.close;
-                    if (r.vol !== undefined) grouped[key].vol += r.vol;
-                    if (r.tickvol !== undefined) grouped[key].tickvol += r.tickvol;
-                    if (r.spread !== undefined) grouped[key].spread = Math.max(grouped[key].spread, r.spread);
-                }
-            }
-            return Object.values(grouped).sort((a, b) => a.datetime - b.datetime);
-        }
-
-        function calculateIndicators() {
-            let data = processTimeframe();
-            if (data.length === 0) return [];
-
-            const rsiP = parseInt(document.getElementById('input-rsi').value) || 14;
-            const atrP = parseInt(document.getElementById('input-atr').value) || 14;
-
-            // Calcular columnas calculadas personalizadas (Eval seguro)
-            const ds = State.datasets.find(d => d.id === State.activeId);
-            const formulas = ds?.customColumns || [];
-
-            let gains = 0, losses = 0, trSum = 0;
-
-            for (let i = 0; i < data.length; i++) {
-                // Fórmulas personalizadas
-                formulas.forEach(f => {
-                    try {
-                        const func = new Function(...Object.keys(data[i]), `return ${f.formula};`);
-                        data[i][f.name] = func(...Object.values(data[i]));
-                    } catch (e) { data[i][f.name] = null; }
-                });
-
-                // RSI
-                if (i > 0) {
-                    const chg = data[i].close - data[i - 1].close;
-                    if (i <= rsiP) {
-                        if (chg > 0) gains += chg; else losses -= chg;
-                    }
-                    if (i === rsiP) {
-                        data[i].avgGain = gains / rsiP;
-                        data[i].avgLoss = losses / rsiP;
-                        let rs = data[i].avgLoss === 0 ? 100 : data[i].avgGain / data[i].avgLoss;
-                        data[i].rsi = 100 - (100 / (1 + rs));
-                    } else if (i > rsiP) {
-                        let cG = chg > 0 ? chg : 0;
-                        let cL = chg < 0 ? -chg : 0;
-                        data[i].avgGain = ((data[i - 1].avgGain * (rsiP - 1)) + cG) / rsiP;
-                        data[i].avgLoss = ((data[i - 1].avgLoss * (rsiP - 1)) + cL) / rsiP;
-                        let rs = data[i].avgLoss === 0 ? 100 : data[i].avgGain / data[i].avgLoss;
-                        data[i].rsi = 100 - (100 / (1 + rs));
-                    }
-                }
-
-                // ATR
-                if (i === 0) data[i].tr = data[i].high - data[i].low;
-                else {
-                    const hl = data[i].high - data[i].low;
-                    const hc = Math.abs(data[i].high - data[i - 1].close);
-                    const lc = Math.abs(data[i].low - data[i - 1].close);
-                    data[i].tr = Math.max(hl, hc, lc);
-                }
-
-                if (i < atrP) trSum += data[i].tr;
-                else if (i === atrP) data[i].atr = trSum / atrP;
-                else data[i].atr = ((data[i - 1].atr * (atrP - 1)) + data[i].tr) / atrP;
-            }
-
-            return data;
-        }
-
-        function computeStats(data) {
-            if (!data || data.length === 0) return null;
-
-            // Siempre almacenamos internamente en PIPS para facilitar la conversión
-            let pos = [], neg = [], rsi = [], atr = [], vol = [], hours = {};
-            const avgP = data[0].close;
-            const pipMult = (avgP < 200 && avgP > 10) ? 100 : 10000; // JPY o normal
-
-            for (let c of data) {
-                const dateObj = new Date(c.datetime);
-                const h = dateObj.getHours();
-
-                const openCloseDist = (c.close - c.open) * pipMult;
-                const highLowDist = (c.high - c.low) * pipMult;
-
-                if (c.close >= c.open) pos.push(openCloseDist);
-                else neg.push(Math.abs(openCloseDist));
-
-                if (c.rsi !== undefined) rsi.push(c.rsi);
-                if (c.atr !== undefined) atr.push(c.atr * pipMult);
-                vol.push(c.tickvol || c.vol || 0);
-
-                if (!hours[h]) hours[h] = { ranges: [], moves: [], pos: [], neg: [] };
-                hours[h].ranges.push(highLowDist);
-                hours[h].moves.push(Math.abs(openCloseDist));
-                
-                if (c.close >= c.open) hours[h].pos.push(openCloseDist);
-                else hours[h].neg.push(Math.abs(openCloseDist));
-            }
-
-            const procHours = Object.keys(hours).map(k => ({
-                hour: parseInt(k),
-                avgRange: hours[k].ranges.reduce((a, b) => a + b, 0) / hours[k].ranges.length,
-                quartiles: MathUtils.quartiles(hours[k].moves),
-                mode: MathUtils.mode(hours[k].moves),
-                posStats: MathUtils.quartiles(hours[k].pos),
-                negStats: MathUtils.quartiles(hours[k].neg)
-            })).sort((a, b) => a.hour - b.hour);
-
-            return {
-                pipMult,
-                // Almacenados en PIPS internamente
-                pos: MathUtils.quartiles(pos), modePos: MathUtils.mode(pos),
-                neg: MathUtils.quartiles(neg), modeNeg: MathUtils.mode(neg),
-                rsi: MathUtils.quartiles(rsi),
-                atr: MathUtils.quartiles(atr),
-                vol: MathUtils.quartiles(vol),
-                hours: procHours
-            };
-        }
-
-        // ==========================================
-        // 5. RENDERIZADO DE VISTAS
-        // ==========================================
-        function renderAll() {
-            showLoader("Actualizando Vistas...");
-            setTimeout(() => {
-                const data = calculateIndicators();
-                State.processedData = data;
-                State.stats = computeStats(data);
-
-                renderSidebar();
-                renderTable(data);
-                renderStatsTabs();
-                renderSplitView();
-                updateRiskMax();
-
-                hideLoader();
-            }, 50);
-        }
-
-        function renderSidebar() {
-            const list = document.getElementById('saved-files-list');
-            list.innerHTML = '';
-
-            if (State.datasets.length === 0) {
-                list.innerHTML = '<li class="text-slate-500 italic text-xs">Ningún archivo cargado</li>';
-                document.getElementById('active-dataset-name').innerText = 'Ninguno';
-                document.getElementById('btn-add-calc').classList.add('hidden');
-                document.getElementById('data-availability').classList.add('hidden');
-                return;
-            }
-
-            State.datasets.forEach(d => {
-                const li = document.createElement('li');
-                const isAct = d.id === State.activeId;
-                li.className = `flex justify-between p-2 rounded cursor-pointer transition ${isAct ? 'bg-blue-600 text-white' : 'hover:bg-slate-800'}`;
-                li.innerHTML = `
+    State.datasets.forEach(d => {
+        const li = document.createElement('li');
+        const isAct = d.id === State.activeId;
+        li.className = `flex justify-between p-2 rounded cursor-pointer transition ${isAct ? 'bg-blue-600 text-white' : 'hover:bg-slate-800'}`;
+        li.innerHTML = `
                     <div class="truncate pr-2" onclick="setActiveDataset('${d.id}')">
                         <div class="font-medium truncate">${d.name}</div>
                         <div class="text-[10px] opacity-70">${d.data.length} filas</div>
                     </div>
                     <button class="text-red-400 hover:text-red-300" onclick="deleteDataset('${d.id}')">✕</button>
                 `;
-                list.appendChild(li);
-                if (isAct) {
-                    document.getElementById('active-dataset-name').innerText = d.name;
-                    document.getElementById('btn-add-calc').classList.remove('hidden');
-                    document.getElementById('data-status').innerText = `${State.processedData.length} registros (${State.timeFilter})`;
-                    if (d.data && d.data.length > 0) {
-                        const fDate = new Date(d.data[0].datetime);
-                        const lDate = new Date(d.data[d.data.length - 1].datetime);
-                        const formatDate = date => `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-                        document.getElementById('data-avail-start').innerText = formatDate(fDate);
-                        document.getElementById('data-avail-end').innerText = formatDate(lDate);
-                        document.getElementById('data-availability').classList.remove('hidden');
-                    } else {
-                        document.getElementById('data-availability').classList.add('hidden');
-                    }
-                }
-            });
-        }
-
-        function renderTable(data) {
-            const thead = document.getElementById('table-head');
-            const tbody = document.getElementById('table-body');
-            thead.innerHTML = ''; tbody.innerHTML = '';
-
-            if (data.length === 0) {
-                thead.innerHTML = '<tr><th class="p-4">Sube un archivo para ver los datos</th></tr>';
-                return;
+        list.appendChild(li);
+        if (isAct) {
+            document.getElementById('active-dataset-name').innerText = d.name;
+            document.getElementById('btn-add-calc').classList.remove('hidden');
+            document.getElementById('data-status').innerText = `${State.processedData.length} registros (${State.timeFilter})`;
+            if (d.data && d.data.length > 0) {
+                const fDate = new Date(d.data[0].datetime);
+                const lDate = new Date(d.data[d.data.length - 1].datetime);
+                const formatDate = date => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+                document.getElementById('data-avail-start').innerText = formatDate(fDate);
+                document.getElementById('data-avail-end').innerText = formatDate(lDate);
+                document.getElementById('data-availability').classList.remove('hidden');
+            } else {
+                document.getElementById('data-availability').classList.add('hidden');
             }
-
-            // Renderizar encabezados dinámicamente
-            const sample = data[0];
-            const keys = Object.keys(sample).filter(k => !['avgGain', 'avgLoss', 'tr'].includes(k)); // Ocultar auxiliares
-
-            let headRow = '<tr>';
-            keys.forEach(k => { headRow += `<th class="px-4 py-3">${k.toUpperCase()}</th>`; });
-            thead.innerHTML = headRow + '</tr>';
-
-            // Paginación (Mostrar solo las primeras 1000 para no trabar el navegador)
-            const limit = Math.min(data.length, 1000);
-            document.getElementById('pagination-info').innerText = `Mostrando ${limit} de ${data.length} filas. Usa los filtros y estadísticas para analizar la totalidad.`;
-
-            let bodyHtml = '';
-            const startIndex = data.length - 1;
-            const endIndex = Math.max(0, data.length - limit);
-            for (let i = startIndex; i >= endIndex; i--) {
-                let rowHtml = `<tr class="hover:bg-slate-700/30 transition-colors">`;
-                keys.forEach(k => {
-                    let val = data[i][k];
-                    if (k === 'datetime') val = new Date(val).toLocaleString();
-                    else if (typeof val === 'number') val = val.toFixed(4);
-                    rowHtml += `<td class="px-4 py-2 font-mono">${val !== undefined && val !== null ? val : '-'}</td>`;
-                });
-                bodyHtml += rowHtml + '</tr>';
-            }
-            tbody.innerHTML = bodyHtml;
         }
+    });
+}
 
-        /**
-         * Crea un card de cuartiles.
-         * @param {string} title
-         * @param {object} data     - Cuartiles ya en PIPS
-         * @param {boolean} isPips  - Si true, convierte con fromPips(); si false, muestra raw
-         */
-        function createQuartileHTML(title, data, isPips = false) {
-            if (!data) return '';
-            const fmt = v => isPips ? fromPips(v) : v.toFixed(4);
-            const suffix = isPips ? ` ${modeLabel()}` : '';
-            return `
+function renderTable(data) {
+    const thead = document.getElementById('table-head');
+    const tbody = document.getElementById('table-body');
+    thead.innerHTML = ''; tbody.innerHTML = '';
+
+    if (data.length === 0) {
+        thead.innerHTML = '<tr><th class="p-4">Sube un archivo para ver los datos</th></tr>';
+        return;
+    }
+
+    // Renderizar encabezados dinámicamente
+    const sample = data[0];
+    const keys = Object.keys(sample).filter(k => !['avgGain', 'avgLoss', 'tr'].includes(k)); // Ocultar auxiliares
+
+    let headRow = '<tr>';
+    keys.forEach(k => { headRow += `<th class="px-4 py-3">${k.toUpperCase()}</th>`; });
+    thead.innerHTML = headRow + '</tr>';
+
+    // Paginación (Mostrar solo las primeras 1000 para no trabar el navegador)
+    const limit = Math.min(data.length, 1000);
+    document.getElementById('pagination-info').innerText = `Mostrando ${limit} de ${data.length} filas. Usa los filtros y estadísticas para analizar la totalidad.`;
+
+    let bodyHtml = '';
+    const startIndex = data.length - 1;
+    const endIndex = Math.max(0, data.length - limit);
+    for (let i = startIndex; i >= endIndex; i--) {
+        let rowHtml = `<tr class="hover:bg-slate-700/30 transition-colors">`;
+        keys.forEach(k => {
+            let val = data[i][k];
+            if (k === 'datetime') val = new Date(val).toLocaleString();
+            else if (typeof val === 'number') val = val.toFixed(4);
+            rowHtml += `<td class="px-4 py-2 font-mono">${val !== undefined && val !== null ? val : '-'}</td>`;
+        });
+        bodyHtml += rowHtml + '</tr>';
+    }
+    tbody.innerHTML = bodyHtml;
+}
+
+/**
+ * Crea un card de cuartiles.
+ * @param {string} title
+ * @param {object} data     - Cuartiles ya en PIPS
+ * @param {boolean} isPips  - Si true, convierte con fromPips(); si false, muestra raw
+ */
+function createQuartileHTML(title, data, isPips = false) {
+    if (!data) return '';
+    const fmt = v => isPips ? fromPips(v) : v.toFixed(4);
+    const suffix = isPips ? ` ${modeLabel()}` : '';
+    return `
                 <div class="bg-slate-800 rounded-xl border border-slate-700 shadow-lg p-5">
                     <h3 class="text-slate-300 font-semibold mb-4 border-b border-slate-700 pb-2">${title} <span class="text-xs text-slate-500 ml-2">(n=${data.count})</span></h3>
                     <div class="space-y-2 text-sm">
@@ -590,17 +617,17 @@
                     </div>
                 </div>
             `;
-        }
+}
 
-        function renderStatsTabs() {
-            const stats = State.stats;
-            if (!stats) return;
+function renderStatsTabs() {
+    const stats = State.stats;
+    if (!stats) return;
 
-            const lbl = modeLabel();
+    const lbl = modeLabel();
 
-            // Velas
-            const cVelas = document.getElementById('velas-container');
-            cVelas.innerHTML = `
+    // Velas
+    const cVelas = document.getElementById('velas-container');
+    cVelas.innerHTML = `
                 ${createQuartileHTML('▲ Velas Alcistas (Positivas)', stats.pos, true)}
                 ${createQuartileHTML('▼ Velas Bajistas (Negativas)', stats.neg, true)}
                 <div class="col-span-1 lg:col-span-2 grid grid-cols-2 gap-6 mt-4">
@@ -615,11 +642,11 @@
                 </div>
             `;
 
-            // Horarios
-            const tBodyHours = document.getElementById('hours-body');
-            let hHtml = '';
-            stats.hours.forEach(h => {
-                hHtml += `
+    // Horarios
+    const tBodyHours = document.getElementById('hours-body');
+    let hHtml = '';
+    stats.hours.forEach(h => {
+        hHtml += `
                 <tr class="hover:bg-slate-700/50">
                     <td class="px-4 py-3 font-bold text-white">${h.hour.toString().padStart(2, '0')}:00</td>
                     <td class="px-4 py-3 font-mono text-blue-400">${fromPips(h.avgRange)}</td>
@@ -630,148 +657,148 @@
                     <td class="px-4 py-3 font-mono text-purple-400">${fromPips(h.quartiles.q3)}</td>
                     <td class="px-4 py-3 font-mono text-slate-400">${fromPips(h.quartiles.max)}</td>
                 </tr>`;
-            });
-            tBodyHours.innerHTML = hHtml;
+    });
+    tBodyHours.innerHTML = hHtml;
 
-            // Indicadores
-            const rsiP = document.getElementById('input-rsi').value;
-            const atrP = document.getElementById('input-atr').value;
-            const cInd = document.getElementById('indicadores-container');
-            cInd.innerHTML = `
+    // Indicadores
+    const rsiP = document.getElementById('input-rsi').value;
+    const atrP = document.getElementById('input-atr').value;
+    const cInd = document.getElementById('indicadores-container');
+    cInd.innerHTML = `
                 ${createQuartileHTML(`RSI (${rsiP})`, stats.rsi, false)}
                 ${createQuartileHTML(`ATR (${atrP}) Volatilidad`, stats.atr, true)}
                 ${createQuartileHTML(`Volumen (Ticks)`, stats.vol, false)}
             `;
+}
+
+function renderSplitView(specificHour = null) {
+    const stats = State.stats;
+    const buyStatsEl = document.getElementById('split-buy-stats');
+    const sellStatsEl = document.getElementById('split-sell-stats');
+    const buyHoursEl = document.getElementById('split-buy-hours');
+    const sellHoursEl = document.getElementById('split-sell-hours');
+    const metricEl = document.getElementById('split-metric');
+
+    if (!stats || !State.processedData || State.processedData.length === 0) {
+        alert("Por favor, carga o selecciona un archivo de datos (CSV) primero para que el motor pueda calcular proyecciones basadas en volatilidad real.");
+        return;
+    }
+    if (!buyStatsEl || !metricEl) return;
+
+    const metric = metricEl.value; // 'close', 'max_excursion', 'drawdown', 'close_wicks'
+    const inputPriceEl = document.getElementById('split-exec-price');
+    if (!inputPriceEl.value) {
+        const last = State.processedData[State.processedData.length - 1];
+        if (last && last.close) inputPriceEl.value = last.close;
+        else inputPriceEl.value = '1.10500';
+    }
+
+    const basePrice = parseFloat(inputPriceEl.value) || 0;
+    const mult = stats.pipMult;
+
+    // Extraer distancias de una vela basadas en la métrica y dirección (en PIPS)
+    const getDist = (c, dir) => {
+        if (metric === 'close') {
+            if (dir === 'BUY' && c.close >= c.open) return (c.close - c.open) * mult;
+            if (dir === 'SELL' && c.close < c.open) return (c.open - c.close) * mult;
+        } else if (metric === 'max_excursion') {
+            if (dir === 'BUY') return (c.high - c.open) * mult;
+            if (dir === 'SELL') return (c.open - c.low) * mult;
+        } else if (metric === 'drawdown') {
+            if (dir === 'BUY') return (c.open - c.low) * mult;
+            if (dir === 'SELL') return (c.high - c.open) * mult;
+        } else if (metric === 'close_wicks') {
+            if (dir === 'BUY') return (c.high - c.close) * mult;
+            if (dir === 'SELL') return (c.close - c.low) * mult;
         }
+        return null;
+    };
 
-        function renderSplitView(specificHour = null) {
-            const stats = State.stats;
-            const buyStatsEl = document.getElementById('split-buy-stats');
-            const sellStatsEl = document.getElementById('split-sell-stats');
-            const buyHoursEl = document.getElementById('split-buy-hours');
-            const sellHoursEl = document.getElementById('split-sell-hours');
-            const metricEl = document.getElementById('split-metric');
+    const grouping = document.getElementById('split-group')?.value || 'hour';
+    let numGroups = 24;
+    let groupLabels = [];
+    if (grouping === 'hour') {
+        numGroups = 24;
+        groupLabels = Array.from({ length: 24 }, (_, i) => `${i}h`);
+    } else if (grouping === 'day') {
+        numGroups = 7;
+        groupLabels = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+    } else if (grouping === 'month') {
+        numGroups = 12;
+        groupLabels = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+    }
 
-            if (!stats || !State.processedData || State.processedData.length === 0) {
-                alert("Por favor, carga o selecciona un archivo de datos (CSV) primero para que el motor pueda calcular proyecciones basadas en volatilidad real.");
-                return;
-            }
-            if (!buyStatsEl || !metricEl) return;
+    // Recolectar datos por grupo para el Heatmap y proyecciones
+    const groupsData = Array.from({ length: numGroups }, () => ({ buy: [], sell: [] }));
+    let globalBuy = [];
+    let globalSell = [];
 
-            const metric = metricEl.value; // 'close', 'max_excursion', 'drawdown', 'close_wicks'
-            const inputPriceEl = document.getElementById('split-exec-price');
-            if (!inputPriceEl.value) {
-                const last = State.processedData[State.processedData.length - 1];
-                if (last && last.close) inputPriceEl.value = last.close;
-                else inputPriceEl.value = '1.10500';
-            }
+    State.processedData.forEach(c => {
+        const d = new Date(c.datetime);
+        let idx = 0;
+        if (grouping === 'hour') idx = d.getHours();
+        else if (grouping === 'day') idx = d.getDay();
+        else if (grouping === 'month') idx = d.getMonth();
 
-            const basePrice = parseFloat(inputPriceEl.value) || 0;
-            const mult = stats.pipMult;
+        const bDist = getDist(c, 'BUY');
+        const sDist = getDist(c, 'SELL');
 
-            // Extraer distancias de una vela basadas en la métrica y dirección (en PIPS)
-            const getDist = (c, dir) => {
-                if (metric === 'close') {
-                    if (dir === 'BUY' && c.close >= c.open) return (c.close - c.open) * mult;
-                    if (dir === 'SELL' && c.close < c.open) return (c.open - c.close) * mult;
-                } else if (metric === 'max_excursion') {
-                    if (dir === 'BUY') return (c.high - c.open) * mult;
-                    if (dir === 'SELL') return (c.open - c.low) * mult;
-                } else if (metric === 'drawdown') {
-                    if (dir === 'BUY') return (c.open - c.low) * mult;
-                    if (dir === 'SELL') return (c.high - c.open) * mult;
-                } else if (metric === 'close_wicks') {
-                    if (dir === 'BUY') return (c.high - c.close) * mult;
-                    if (dir === 'SELL') return (c.close - c.low) * mult;
-                }
-                return null;
-            };
+        if (bDist !== null && bDist >= 0) {
+            groupsData[idx].buy.push(bDist);
+            globalBuy.push(bDist);
+        }
+        if (sDist !== null && sDist >= 0) {
+            groupsData[idx].sell.push(sDist);
+            globalSell.push(sDist);
+        }
+    });
 
-            const grouping = document.getElementById('split-group')?.value || 'hour';
-            let numGroups = 24;
-            let groupLabels = [];
-            if (grouping === 'hour') {
-                numGroups = 24;
-                groupLabels = Array.from({length: 24}, (_, i) => `${i}h`);
-            } else if (grouping === 'day') {
-                numGroups = 7;
-                groupLabels = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
-            } else if (grouping === 'month') {
-                numGroups = 12;
-                groupLabels = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
-            }
+    const getExtendedStats = (arr) => {
+        if (arr.length === 0) return { q1: 0, q2: 0, q3: 0, max: 0, min: 0, avg: 0 };
+        const qs = MathUtils.quartiles(arr);
+        const sum = arr.reduce((a, b) => a + b, 0);
+        qs.avg = sum / arr.length;
+        return qs;
+    };
 
-            // Recolectar datos por grupo para el Heatmap y proyecciones
-            const groupsData = Array.from({length: numGroups}, () => ({ buy: [], sell: [] }));
-            let globalBuy = [];
-            let globalSell = [];
+    let posStatsSource, negStatsSource, contextLabel;
 
-            State.processedData.forEach(c => {
-                const d = new Date(c.datetime);
-                let idx = 0;
-                if (grouping === 'hour') idx = d.getHours();
-                else if (grouping === 'day') idx = d.getDay();
-                else if (grouping === 'month') idx = d.getMonth();
+    if (specificHour !== null && specificHour >= 0 && specificHour < numGroups) {
+        posStatsSource = getExtendedStats(groupsData[specificHour].buy);
+        negStatsSource = getExtendedStats(groupsData[specificHour].sell);
+        contextLabel = groupLabels[specificHour];
+    } else {
+        posStatsSource = getExtendedStats(globalBuy);
+        negStatsSource = getExtendedStats(globalSell);
+        contextLabel = "GLOBAL";
+    }
 
-                const bDist = getDist(c, 'BUY');
-                const sDist = getDist(c, 'SELL');
-                
-                if (bDist !== null && bDist >= 0) {
-                    groupsData[idx].buy.push(bDist);
-                    globalBuy.push(bDist);
-                }
-                if (sDist !== null && sDist >= 0) {
-                    groupsData[idx].sell.push(sDist);
-                    globalSell.push(sDist);
-                }
-            });
+    const statType = document.getElementById('split-stat')?.value || 'q3'; // 'q1', 'q2', 'avg', 'q3', 'max'
 
-            const getExtendedStats = (arr) => {
-                if (arr.length === 0) return {q1:0, q2:0, q3:0, max:0, min:0, avg:0};
-                const qs = MathUtils.quartiles(arr);
-                const sum = arr.reduce((a, b) => a + b, 0);
-                qs.avg = sum / arr.length;
-                return qs;
-            };
+    // Textos de Proyección adaptables a la métrica y base estadística
+    let buyLabel1 = "Conservador (Q1)", buyLabel2 = "Seleccionado", buyLabel3 = "Máximo (Max)";
+    let sellLabel1 = "Conservador (Q1)", sellLabel2 = "Seleccionado", sellLabel3 = "Máximo (Max)";
 
-            let posStatsSource, negStatsSource, contextLabel;
+    let statNames = { 'q1': 'Q1', 'q2': 'Mediana', 'avg': 'Promedio', 'q3': 'Q3', 'max': 'Max' };
+    buyLabel2 = `${statNames[statType]} (${contextLabel})`;
+    sellLabel2 = `${statNames[statType]} (${contextLabel})`;
 
-            if (specificHour !== null && specificHour >= 0 && specificHour < numGroups) {
-                posStatsSource = getExtendedStats(groupsData[specificHour].buy);
-                negStatsSource = getExtendedStats(groupsData[specificHour].sell);
-                contextLabel = groupLabels[specificHour];
-            } else {
-                posStatsSource = getExtendedStats(globalBuy);
-                negStatsSource = getExtendedStats(globalSell);
-                contextLabel = "GLOBAL";
-            }
+    if (metric === 'close') {
+        buyLabel1 = "TP Conservador"; buyLabel3 = "Techo Max";
+        sellLabel1 = "TP Conservador"; sellLabel3 = "Suelo Max";
+    } else if (metric === 'max_excursion') {
+        buyLabel1 = "Techo Conservador"; buyLabel3 = "Techo Extremo";
+        sellLabel1 = "Suelo Conservador"; sellLabel3 = "Suelo Extremo";
+    } else if (metric === 'drawdown') {
+        buyLabel1 = "Drawdown Probable"; buyLabel3 = "Riesgo Extremo";
+        sellLabel1 = "Drawdown Probable"; sellLabel3 = "Riesgo Extremo";
+    } else if (metric === 'close_wicks') {
+        buyLabel1 = "Mecha Común"; buyLabel3 = "Mecha Extrema";
+        sellLabel1 = "Mecha Común"; sellLabel3 = "Mecha Extrema";
+    }
 
-            const statType = document.getElementById('split-stat')?.value || 'q3'; // 'q1', 'q2', 'avg', 'q3', 'max'
-
-            // Textos de Proyección adaptables a la métrica y base estadística
-            let buyLabel1 = "Conservador (Q1)", buyLabel2 = "Seleccionado", buyLabel3 = "Máximo (Max)";
-            let sellLabel1 = "Conservador (Q1)", sellLabel2 = "Seleccionado", sellLabel3 = "Máximo (Max)";
-            
-            let statNames = { 'q1': 'Q1', 'q2': 'Mediana', 'avg': 'Promedio', 'q3': 'Q3', 'max': 'Max' };
-            buyLabel2 = `${statNames[statType]} (${contextLabel})`;
-            sellLabel2 = `${statNames[statType]} (${contextLabel})`;
-
-            if (metric === 'close') {
-                buyLabel1 = "TP Conservador"; buyLabel3 = "Techo Max";
-                sellLabel1 = "TP Conservador"; sellLabel3 = "Suelo Max";
-            } else if (metric === 'max_excursion') {
-                buyLabel1 = "Techo Conservador"; buyLabel3 = "Techo Extremo";
-                sellLabel1 = "Suelo Conservador"; sellLabel3 = "Suelo Extremo";
-            } else if (metric === 'drawdown') {
-                buyLabel1 = "Drawdown Probable"; buyLabel3 = "Riesgo Extremo";
-                sellLabel1 = "Drawdown Probable"; sellLabel3 = "Riesgo Extremo";
-            } else if (metric === 'close_wicks') {
-                buyLabel1 = "Mecha Común"; buyLabel3 = "Mecha Extrema";
-                sellLabel1 = "Mecha Común"; sellLabel3 = "Mecha Extrema";
-            }
-
-            // Buy Projections
-            buyStatsEl.innerHTML = `
+    // Buy Projections
+    buyStatsEl.innerHTML = `
                 <div class="bg-white/5 p-4 rounded-lg text-center border border-white/5">
                     <span class="block text-[10px] text-slate-400 uppercase tracking-wider mb-1">${buyLabel1}</span>
                     <strong class="text-xl text-white font-mono">${(basePrice + (posStatsSource.q1 / mult)).toFixed(5)}</strong>
@@ -786,9 +813,9 @@
                 </div>
             `;
 
-            let sDir = (metric === 'drawdown' || metric === 'close_wicks') ? 1 : -1; 
+    let sDir = (metric === 'drawdown' || metric === 'close_wicks') ? 1 : -1;
 
-            sellStatsEl.innerHTML = `
+    sellStatsEl.innerHTML = `
                 <div class="bg-white/5 p-4 rounded-lg text-center border border-white/5">
                     <span class="block text-[10px] text-slate-400 uppercase tracking-wider mb-1">${sellLabel1}</span>
                     <strong class="text-xl text-white font-mono">${(basePrice + (negStatsSource.q1 / mult * sDir)).toFixed(5)}</strong>
@@ -803,672 +830,672 @@
                 </div>
             `;
 
-            // Heatmap - Nested Quartiles (basados en la base estadística seleccionada)
-            const buyBaseStats = groupsData.map(g => getExtendedStats(g.buy)[statType]).filter(v => v > 0);
-            const sellBaseStats = groupsData.map(g => getExtendedStats(g.sell)[statType]).filter(v => v > 0);
-            const globalBuyBaseQuartiles = MathUtils.quartiles(buyBaseStats.length > 0 ? buyBaseStats : [0]);
-            const globalSellBaseQuartiles = MathUtils.quartiles(sellBaseStats.length > 0 ? sellBaseStats : [0]);
+    // Heatmap - Nested Quartiles (basados en la base estadística seleccionada)
+    const buyBaseStats = groupsData.map(g => getExtendedStats(g.buy)[statType]).filter(v => v > 0);
+    const sellBaseStats = groupsData.map(g => getExtendedStats(g.sell)[statType]).filter(v => v > 0);
+    const globalBuyBaseQuartiles = MathUtils.quartiles(buyBaseStats.length > 0 ? buyBaseStats : [0]);
+    const globalSellBaseQuartiles = MathUtils.quartiles(sellBaseStats.length > 0 ? sellBaseStats : [0]);
 
-            const buildHoursHtml = (type) => {
-                let html = '';
-                for (let i = 0; i < numGroups; i++) {
-                    const qStats = type === 'BUY' ? getExtendedStats(groupsData[i].buy) : getExtendedStats(groupsData[i].sell);
-                    const val = qStats[statType];
-                    const gStats = type === 'BUY' ? globalBuyBaseQuartiles : globalSellBaseQuartiles;
-                    
-                    let bgColor = '';
-                    if (type === 'BUY') {
-                        if (val >= gStats.q3) bgColor = 'bg-emerald-500 text-white border-emerald-400';
-                        else if (val >= gStats.q2) bgColor = 'bg-emerald-600 text-white border-emerald-500';
-                        else if (val >= gStats.q1) bgColor = 'bg-emerald-800/80 text-emerald-200 border-emerald-700/50';
-                        else bgColor = 'bg-emerald-950/50 text-emerald-500/50 border-emerald-900/30';
-                    } else {
-                        if (val >= gStats.q3) bgColor = 'bg-red-500 text-white border-red-400';
-                        else if (val >= gStats.q2) bgColor = 'bg-red-600 text-white border-red-500';
-                        else if (val >= gStats.q1) bgColor = 'bg-red-800/80 text-red-200 border-red-700/50';
-                        else bgColor = 'bg-red-950/50 text-red-500/50 border-red-900/30';
-                    }
+    const buildHoursHtml = (type) => {
+        let html = '';
+        for (let i = 0; i < numGroups; i++) {
+            const qStats = type === 'BUY' ? getExtendedStats(groupsData[i].buy) : getExtendedStats(groupsData[i].sell);
+            const val = qStats[statType];
+            const gStats = type === 'BUY' ? globalBuyBaseQuartiles : globalSellBaseQuartiles;
 
-                    let selectedStyles = specificHour === i ? 'ring-2 ring-white scale-110 z-10' : '';
-                    
-                    html += `<div onclick="renderSplitView(${i})" class="flex-1 min-w-[36px] py-1 text-center rounded border transition-transform hover:scale-110 hover:z-10 cursor-pointer ${bgColor} ${selectedStyles}" title="Clic para proyectar este grupo (${statNames[statType]}: ${val.toFixed(1)} pips)">
+            let bgColor = '';
+            if (type === 'BUY') {
+                if (val >= gStats.q3) bgColor = 'bg-emerald-500 text-white border-emerald-400';
+                else if (val >= gStats.q2) bgColor = 'bg-emerald-600 text-white border-emerald-500';
+                else if (val >= gStats.q1) bgColor = 'bg-emerald-800/80 text-emerald-200 border-emerald-700/50';
+                else bgColor = 'bg-emerald-950/50 text-emerald-500/50 border-emerald-900/30';
+            } else {
+                if (val >= gStats.q3) bgColor = 'bg-red-500 text-white border-red-400';
+                else if (val >= gStats.q2) bgColor = 'bg-red-600 text-white border-red-500';
+                else if (val >= gStats.q1) bgColor = 'bg-red-800/80 text-red-200 border-red-700/50';
+                else bgColor = 'bg-red-950/50 text-red-500/50 border-red-900/30';
+            }
+
+            let selectedStyles = specificHour === i ? 'ring-2 ring-white scale-110 z-10' : '';
+
+            html += `<div onclick="renderSplitView(${i})" class="flex-1 min-w-[36px] py-1 text-center rounded border transition-transform hover:scale-110 hover:z-10 cursor-pointer ${bgColor} ${selectedStyles}" title="Clic para proyectar este grupo (${statNames[statType]}: ${val.toFixed(1)} pips)">
                         <div class="text-xs font-mono font-bold">${groupLabels[i]}</div>
                         <div class="text-[9px] font-sans opacity-80 mt-0.5">${val.toFixed(1)}</div>
                     </div>`;
-                }
-                return html;
-            };
-
-            buyHoursEl.innerHTML = buildHoursHtml('BUY');
-            sellHoursEl.innerHTML = buildHoursHtml('SELL');
         }
+        return html;
+    };
 
-        // ==========================================
-        // 6. CALCULADORA DE RIESGO
-        State.calcMode = 'sl-to-lots';
-        State.currentSlPips = 0;
-        State.currentRiskMoney = 0;
-        State.currentLots = 0;
+    buyHoursEl.innerHTML = buildHoursHtml('BUY');
+    sellHoursEl.innerHTML = buildHoursHtml('SELL');
+}
 
-        function updateRiskMax() {
-            const el = document.getElementById('risk-candle-idx');
-            el.max = Math.max(0, State.processedData.length - 1);
-            if (el.value > el.max) el.value = el.max;
-            calcRisk();
-        }
+// ==========================================
+// 6. CALCULADORA DE RIESGO
+State.calcMode = 'sl-to-lots';
+State.currentSlPips = 0;
+State.currentRiskMoney = 0;
+State.currentLots = 0;
 
-        function calcRisk() {
-            const bal = parseFloat(document.getElementById('risk-balance').value) || 0;
-            const pct = parseFloat(document.getElementById('risk-percent').value) || 0;
-            const pipValue = parseFloat(document.getElementById('risk-pip-value').value) || 10;
+function updateRiskMax() {
+    const el = document.getElementById('risk-candle-idx');
+    el.max = Math.max(0, State.processedData.length - 1);
+    if (el.value > el.max) el.value = el.max;
+    calcRisk();
+}
 
-            // 1) Dinero en riesgo
-            const riskMoney = bal * (pct / 100);
-            document.getElementById('risk-money').innerText = `$${riskMoney.toFixed(2)}`;
-            document.getElementById('risk-formula-hint').innerText = `${bal.toLocaleString()} × ${pct}% = $${riskMoney.toFixed(2)}`;
+function calcRisk() {
+    const bal = parseFloat(document.getElementById('risk-balance').value) || 0;
+    const pct = parseFloat(document.getElementById('risk-percent').value) || 0;
+    const pipValue = parseFloat(document.getElementById('risk-pip-value').value) || 10;
 
-            let slPips = 0;  // en pips, uso interno
+    // 1) Dinero en riesgo
+    const riskMoney = bal * (pct / 100);
+    document.getElementById('risk-money').innerText = `$${riskMoney.toFixed(2)}`;
+    document.getElementById('risk-formula-hint').innerText = `${bal.toLocaleString()} × ${pct}% = $${riskMoney.toFixed(2)}`;
 
-            if (State.calcMode === 'sl-to-lots') {
-                // ── MODO A: SL conocido → calcular lotaje ──────────────────────
-                const strategy = document.getElementById('risk-strategy').value;
-                if (strategy !== 'manual' && (!State.stats || State.processedData.length === 0)) return;
+    let slPips = 0;  // en pips, uso interno
 
-                const idx = parseInt(document.getElementById('risk-candle-idx').value) || 0;
-                document.getElementById('risk-candle-label').innerText = `Vela #${idx}`;
+    if (State.calcMode === 'sl-to-lots') {
+        // ── MODO A: SL conocido → calcular lotaje ──────────────────────
+        const strategy = document.getElementById('risk-strategy').value;
+        if (strategy !== 'manual' && (!State.stats || State.processedData.length === 0)) return;
 
-                const slInputRaw = parseFloat(document.getElementById('risk-sl').value) || 1;
+        const idx = parseInt(document.getElementById('risk-candle-idx').value) || 0;
+        document.getElementById('risk-candle-label').innerText = `Vela #${idx}`;
+
+        const slInputRaw = parseFloat(document.getElementById('risk-sl').value) || 1;
 
 
-                if (strategy !== 'manual') {
-                    if (strategy === 'vela') {
-                        const c = State.processedData[idx];
-                        const isBull = c.close >= c.open;
-                        const dist = isBull ? (c.close - c.low) : (c.high - c.close);
-                        slPips = Math.max(0.1, dist * State.stats.pipMult);
-                        document.getElementById('slider-container').classList.remove('hidden');
-                    } else {
-                        document.getElementById('slider-container').classList.add('hidden');
-                        if (strategy === 'pos_q1') slPips = State.stats.pos.q1;
-                        else if (strategy === 'pos_q2') slPips = State.stats.pos.q2;
-                        else if (strategy === 'pos_q3') slPips = State.stats.pos.q3;
-                        else if (strategy === 'neg_q1') slPips = State.stats.neg.q1;
-                        else if (strategy === 'neg_q2') slPips = State.stats.neg.q2;
-                        else if (strategy === 'neg_q3') slPips = State.stats.neg.q3;
-                        else if (strategy === 'atr') {
-                            const last = State.processedData[State.processedData.length - 1];
-                            slPips = last && last.atr ? (last.atr * State.stats.pipMult) : 1;
-                        }
-                        slPips = Math.max(0.1, slPips);
-                    }
-                    // Mostrar en unidad activa
-                    document.getElementById('risk-sl').value = fromPips(slPips);
-                } else {
-                    document.getElementById('slider-container').classList.add('hidden');
-                    // Convertir unidad activa → pips
-                    switch (State.displayMode) {
-                        case 'pips':   slPips = Math.max(0.001, slInputRaw); break;
-                        case 'points': slPips = Math.max(0.001, slInputRaw / 10); break;
-                        case 'value':  slPips = Math.max(0.001, slInputRaw * (State.stats?.pipMult || 10000)); break;
-                    }
-                }
-
-                // Etiqueta de unidad
-                const slLabelMap = { pips: 'Pips', points: 'Puntos', value: 'Valor (precio)' };
-                document.getElementById('sl-mode-label').innerText = slLabelMap[State.displayMode];
-                // Equivalencia en pips
-                if (State.displayMode !== 'pips') {
-                    document.getElementById('sl-pips-equiv').innerText = `≈ ${slPips.toFixed(1)} pips`;
-                } else {
-                    document.getElementById('sl-pips-equiv').innerText = '';
-                }
-
-                // Fórmula: Lotes = Riesgo$ / (SL_pips × Valor/pip)
-                const lotsRaw = riskMoney / (slPips * pipValue);
-                const lots = isFinite(lotsRaw) && lotsRaw > 0 ? parseFloat(lotsRaw.toFixed(2)) : 0;
-                document.getElementById('risk-lots').innerText = lots.toFixed(2);
-                document.getElementById('risk-lots-hint').innerText =
-                    `$${riskMoney.toFixed(2)} ÷ (${slPips.toFixed(1)} pips × $${pipValue}/pip)`;
-
-                // Verificación (usando lotes redondeados para simular broker real)
-                const actualLoss = lots * slPips * pipValue;
-                const actualPct = bal > 0 ? (actualLoss / bal) * 100 : 0;
-                document.getElementById('verify-loss').innerText = `$${actualLoss.toFixed(2)}`;
-                document.getElementById('verify-pct').innerText = `${actualPct.toFixed(2)}%`;
-                document.getElementById('verify-formula').innerText =
-                    `${lots.toFixed(2)} lotes × ${slPips.toFixed(1)} pips × $${pipValue}/pip = $${actualLoss.toFixed(2)}`;
-
+        if (strategy !== 'manual') {
+            if (strategy === 'vela') {
+                const c = State.processedData[idx];
+                const isBull = c.close >= c.open;
+                const dist = isBull ? (c.close - c.low) : (c.high - c.close);
+                slPips = Math.max(0.1, dist * State.stats.pipMult);
+                document.getElementById('slider-container').classList.remove('hidden');
             } else {
-                // ── MODO B: Lotaje conocido → calcular SL máximo ───────────────
-                const lots = parseFloat(document.getElementById('risk-lots-input').value) || 0;
-
-                // Fórmula: MaxSL_pips = Riesgo$ / (Lotes × Valor/pip)
-                const maxSlPips = lots > 0 && pipValue > 0 ? riskMoney / (lots * pipValue) : 0;
-
-                // Mostrar en la unidad activa
-                let displayVal, displayUnit;
-                switch (State.displayMode) {
-                    case 'pips':   displayVal = maxSlPips.toFixed(1);  displayUnit = 'pips';  break;
-                    case 'points': displayVal = (maxSlPips * 10).toFixed(0); displayUnit = 'puntos'; break;
-                    case 'value':  displayVal = (maxSlPips / (State.stats?.pipMult || 10000)).toFixed(5); displayUnit = 'precio'; break;
+                document.getElementById('slider-container').classList.add('hidden');
+                if (strategy === 'pos_q1') slPips = State.stats.pos.q1;
+                else if (strategy === 'pos_q2') slPips = State.stats.pos.q2;
+                else if (strategy === 'pos_q3') slPips = State.stats.pos.q3;
+                else if (strategy === 'neg_q1') slPips = State.stats.neg.q1;
+                else if (strategy === 'neg_q2') slPips = State.stats.neg.q2;
+                else if (strategy === 'neg_q3') slPips = State.stats.neg.q3;
+                else if (strategy === 'atr') {
+                    const last = State.processedData[State.processedData.length - 1];
+                    slPips = last && last.atr ? (last.atr * State.stats.pipMult) : 1;
                 }
-                document.getElementById('risk-max-sl').innerText = displayVal;
-                document.getElementById('risk-max-sl-unit').innerText = displayUnit;
-                document.getElementById('risk-max-sl-hint').innerText =
-                    `$${riskMoney.toFixed(2)} ÷ (${lots} lotes × $${pipValue}/pip) = ${maxSlPips.toFixed(1)} pips`;
-
-                // Verificación
-                const actualLoss = lots * maxSlPips * pipValue;
-                const actualPct = bal > 0 ? (actualLoss / bal) * 100 : 0;
-                document.getElementById('verify-loss').innerText = `$${actualLoss.toFixed(2)}`;
-                document.getElementById('verify-pct').innerText = `${actualPct.toFixed(2)}%`;
-                document.getElementById('verify-formula').innerText =
-                    `${lots} lotes × ${maxSlPips.toFixed(1)} pips × $${pipValue}/pip = $${actualLoss.toFixed(2)}`;
-                
-                slPips = maxSlPips;
+                slPips = Math.max(0.1, slPips);
             }
-
-            State.currentSlPips = slPips;
-            State.currentLots = document.getElementById('risk-lots').innerText === '0.00' && State.calcMode === 'lots-to-sl' 
-                ? parseFloat(document.getElementById('risk-lots-input').value) || 0 
-                : parseFloat(document.getElementById('risk-lots').innerText) || 0;
-            State.currentRiskMoney = riskMoney;
-
-            // Margen
-            const leverage = parseFloat(document.getElementById('risk-leverage').value) || 100;
-            const margin = (State.currentLots * 100000) / leverage;
-            document.getElementById('verify-margin').innerText = `$${margin.toFixed(2)}`;
-
-            // Etiqueta TP
-            const slLabelMap = { pips: 'Pips', points: 'Puntos', value: 'Valor (precio)' };
-            document.getElementById('tp-mode-label').innerText = slLabelMap[State.displayMode];
-
-            // Proyección
-            calcTPProj('rr');
-        }
-
-        function calcTPProj(source) {
-            const slPips = State.currentSlPips || 0;
-            const riskMoney = State.currentRiskMoney || 0;
-            const rrInput = document.getElementById('risk-rr-input');
-            const tpInput = document.getElementById('risk-tp-input');
-
-            if (slPips <= 0) {
-                document.getElementById('risk-profit-money').innerText = '$0.00';
-                return;
-            }
-
-            if (source === 'rr') {
-                const rr = parseFloat(rrInput.value) || 0;
-                let tpPips = slPips * rr;
-                
-                let tpDisp;
-                switch(State.displayMode) {
-                    case 'pips': tpDisp = tpPips; break;
-                    case 'points': tpDisp = tpPips * 10; break;
-                    case 'value': tpDisp = tpPips / (State.stats?.pipMult || 10000); break;
-                }
-                
-                tpInput.value = State.displayMode === 'value' ? tpDisp.toFixed(5) : tpDisp.toFixed(1);
-                document.getElementById('risk-profit-money').innerText = `$${(riskMoney * rr).toFixed(2)}`;
-            } else if (source === 'tp') {
-                const tpDisp = parseFloat(tpInput.value) || 0;
-                let tpPips;
-                switch(State.displayMode) {
-                    case 'pips': tpPips = tpDisp; break;
-                    case 'points': tpPips = tpDisp / 10; break;
-                    case 'value': tpPips = tpDisp * (State.stats?.pipMult || 10000); break;
-                }
-                
-                const rr = tpPips / slPips;
-                rrInput.value = rr.toFixed(2);
-                document.getElementById('risk-profit-money').innerText = `$${(riskMoney * rr).toFixed(2)}`;
-            }
-            
-            updateBotPanel();
-        }
-
-        // ==========================================
-        // 7. BOT / EJECUCIÓN PRO
-        // ==========================================
-        function updateBotPanel() {
-            if (!document.getElementById('bot-display-lots')) return;
-            const lots = State.currentLots || 0;
-            const slDisp = document.getElementById('risk-sl').value || '0';
-            const tpDisp = document.getElementById('risk-tp-input').value || '0';
-            
-            document.getElementById('bot-display-lots').innerText = lots.toFixed(2);
-            document.getElementById('bot-display-sl').innerHTML = `${slDisp} <span class="text-xs text-slate-500">${document.getElementById('sl-mode-label').innerText}</span>`;
-            document.getElementById('bot-display-tp').innerHTML = `${tpDisp} <span class="text-xs text-slate-500">${document.getElementById('tp-mode-label').innerText}</span>`;
-            
-            // Pre-fill realistic price if available and not manually overridden
-            const priceInput = document.getElementById('bot-precio-actual');
-            if (!priceInput.dataset.manual && State.processedData && State.processedData.length > 0) {
-                const lastCandle = State.processedData[State.processedData.length - 1];
-                if (lastCandle && lastCandle.close) {
-                    priceInput.value = lastCandle.close;
-                }
-            } else if (!priceInput.value) {
-                priceInput.value = "1.10500";
+            // Mostrar en unidad activa
+            document.getElementById('risk-sl').value = fromPips(slPips);
+        } else {
+            document.getElementById('slider-container').classList.add('hidden');
+            // Convertir unidad activa → pips
+            switch (State.displayMode) {
+                case 'pips': slPips = Math.max(0.001, slInputRaw); break;
+                case 'points': slPips = Math.max(0.001, slInputRaw / 10); break;
+                case 'value': slPips = Math.max(0.001, slInputRaw * (State.stats?.pipMult || 10000)); break;
             }
         }
 
-        document.getElementById('bot-precio-actual')?.addEventListener('input', function() {
-            this.dataset.manual = "true";
-        });
-
-        function logMensajeBot(mensaje) {
-            const consola = document.getElementById('bot-consola');
-            if (!consola) return;
-            const tiempo = new Date().toLocaleTimeString();
-            consola.innerHTML += `<div><span class="text-slate-500">[${tiempo}]</span> ${mensaje}</div>`;
-            consola.scrollTop = consola.scrollHeight;
+        // Etiqueta de unidad
+        const slLabelMap = { pips: 'Pips', points: 'Puntos', value: 'Valor (precio)' };
+        document.getElementById('sl-mode-label').innerText = slLabelMap[State.displayMode];
+        // Equivalencia en pips
+        if (State.displayMode !== 'pips') {
+            document.getElementById('sl-pips-equiv').innerText = `≈ ${slPips.toFixed(1)} pips`;
+        } else {
+            document.getElementById('sl-pips-equiv').innerText = '';
         }
 
-        async function abrirOperacionEURUSD(side) {
-            const symbol = "EURUSD";
-            const lots = State.currentLots || 0;
-            const priceInput = document.getElementById('bot-precio-actual').value;
-            
-            if (lots <= 0) {
-                logMensajeBot(`<span class="text-red-400">❌ Error: El lotaje debe ser mayor a 0. Ajusta la calculadora de riesgo.</span>`);
-                return;
-            }
+        // Fórmula: Lotes = Riesgo$ / (SL_pips × Valor/pip)
+        const lotsRaw = riskMoney / (slPips * pipValue);
+        const lots = isFinite(lotsRaw) && lotsRaw > 0 ? parseFloat(lotsRaw.toFixed(2)) : 0;
+        document.getElementById('risk-lots').innerText = lots.toFixed(2);
+        document.getElementById('risk-lots-hint').innerText =
+            `$${riskMoney.toFixed(2)} ÷ (${slPips.toFixed(1)} pips × $${pipValue}/pip)`;
 
-            logMensajeBot(`Iniciando evaluación algorítmica para ${symbol}...`);
+        // Verificación (usando lotes redondeados para simular broker real)
+        const actualLoss = lots * slPips * pipValue;
+        const actualPct = bal > 0 ? (actualLoss / bal) * 100 : 0;
+        document.getElementById('verify-loss').innerText = `$${actualLoss.toFixed(2)}`;
+        document.getElementById('verify-pct').innerText = `${actualPct.toFixed(2)}%`;
+        document.getElementById('verify-formula').innerText =
+            `${lots.toFixed(2)} lotes × ${slPips.toFixed(1)} pips × $${pipValue}/pip = $${actualLoss.toFixed(2)}`;
 
-            try {
-                // PASO A: Capturar el precio actual del input
-                const precioEjecucion = parseFloat(priceInput);
-                if (isNaN(precioEjecucion)) throw new Error("Precio de ejecución inválido");
+    } else {
+        // ── MODO B: Lotaje conocido → calcular SL máximo ───────────────
+        const lots = parseFloat(document.getElementById('risk-lots-input').value) || 0;
 
-                logMensajeBot(`Precio de mercado confirmado: <span class="text-white">${precioEjecucion}</span>`);
+        // Fórmula: MaxSL_pips = Riesgo$ / (Lotes × Valor/pip)
+        const maxSlPips = lots > 0 && pipValue > 0 ? riskMoney / (lots * pipValue) : 0;
 
-                // PASO B: Calcular SL y TP exactos basado en pips y dirección
-                const slPips = State.currentSlPips || 0;
-                const rr = parseFloat(document.getElementById('risk-rr-input').value) || 0;
-                const tpPips = slPips * rr;
+        // Mostrar en la unidad activa
+        let displayVal, displayUnit;
+        switch (State.displayMode) {
+            case 'pips': displayVal = maxSlPips.toFixed(1); displayUnit = 'pips'; break;
+            case 'points': displayVal = (maxSlPips * 10).toFixed(0); displayUnit = 'puntos'; break;
+            case 'value': displayVal = (maxSlPips / (State.stats?.pipMult || 10000)).toFixed(5); displayUnit = 'precio'; break;
+        }
+        document.getElementById('risk-max-sl').innerText = displayVal;
+        document.getElementById('risk-max-sl-unit').innerText = displayUnit;
+        document.getElementById('risk-max-sl-hint').innerText =
+            `$${riskMoney.toFixed(2)} ÷ (${lots} lotes × $${pipValue}/pip) = ${maxSlPips.toFixed(1)} pips`;
 
-                let precioSL, precioTP;
-                if (side === 'BUY') {
-                    precioSL = precioEjecucion - (slPips * 0.0001);
-                    precioTP = precioEjecucion + (tpPips * 0.0001);
-                } else {
-                    precioSL = precioEjecucion + (slPips * 0.0001);
-                    precioTP = precioEjecucion - (tpPips * 0.0001);
-                }
+        // Verificación
+        const actualLoss = lots * maxSlPips * pipValue;
+        const actualPct = bal > 0 ? (actualLoss / bal) * 100 : 0;
+        document.getElementById('verify-loss').innerText = `$${actualLoss.toFixed(2)}`;
+        document.getElementById('verify-pct').innerText = `${actualPct.toFixed(2)}%`;
+        document.getElementById('verify-formula').innerText =
+            `${lots} lotes × ${maxSlPips.toFixed(1)} pips × $${pipValue}/pip = $${actualLoss.toFixed(2)}`;
 
-                const orden = {
-                    instrument: symbol,
-                    units: lots * 100000, 
-                    type: "MARKET",               
-                    side: side,                  
-                    stopLoss: precioSL.toFixed(5),
-                    takeProfit: precioTP.toFixed(5)
-                };
+        slPips = maxSlPips;
+    }
 
-                logMensajeBot(`Condiciones óptimas. Enviando orden de ${side === 'BUY' ? 'COMPRA' : 'VENTA'}:`);
-                logMensajeBot(`<span class="text-slate-400">${JSON.stringify(orden)}</span>`);
-                
-                await new Promise(resolve => setTimeout(resolve, 800)); // Simulate API call
+    State.currentSlPips = slPips;
+    State.currentLots = document.getElementById('risk-lots').innerText === '0.00' && State.calcMode === 'lots-to-sl'
+        ? parseFloat(document.getElementById('risk-lots-input').value) || 0
+        : parseFloat(document.getElementById('risk-lots').innerText) || 0;
+    State.currentRiskMoney = riskMoney;
 
-                // PASO D: Confirmación simulada
-                const ticketSimulado = Math.floor(Math.random() * 1000000);
-                logMensajeBot(`<span class="text-emerald-400">✅ Éxito. Operación abierta a ${precioEjecucion}. Ticket: #${ticketSimulado}</span>`);
-                logMensajeBot(`<span class="text-red-300">-> SL fijado en: ${precioSL.toFixed(5)}</span>`);
-                logMensajeBot(`<span class="text-emerald-300">-> TP fijado en: ${precioTP.toFixed(5)}</span>`);
+    // Margen
+    const leverage = parseFloat(document.getElementById('risk-leverage').value) || 100;
+    const margin = (State.currentLots * 100000) / leverage;
+    document.getElementById('verify-margin').innerText = `$${margin.toFixed(2)}`;
 
-            } catch (error) {
-                logMensajeBot(`<span class="text-red-400">❌ Error crítico: ${error.message}</span>`);
-            }
+    // Etiqueta TP
+    const slLabelMap = { pips: 'Pips', points: 'Puntos', value: 'Valor (precio)' };
+    document.getElementById('tp-mode-label').innerText = slLabelMap[State.displayMode];
+
+    // Proyección
+    calcTPProj('rr');
+}
+
+function calcTPProj(source) {
+    const slPips = State.currentSlPips || 0;
+    const riskMoney = State.currentRiskMoney || 0;
+    const rrInput = document.getElementById('risk-rr-input');
+    const tpInput = document.getElementById('risk-tp-input');
+
+    if (slPips <= 0) {
+        document.getElementById('risk-profit-money').innerText = '$0.00';
+        return;
+    }
+
+    if (source === 'rr') {
+        const rr = parseFloat(rrInput.value) || 0;
+        let tpPips = slPips * rr;
+
+        let tpDisp;
+        switch (State.displayMode) {
+            case 'pips': tpDisp = tpPips; break;
+            case 'points': tpDisp = tpPips * 10; break;
+            case 'value': tpDisp = tpPips / (State.stats?.pipMult || 10000); break;
         }
 
-        // ==========================================
-        // 7. EVENTOS Y CONTROLADORES
-        // ==========================================
-        async function loadDatasets() {
-            State.datasets = await DB.getAll();
-            if (State.datasets.length > 0 && !State.activeId) {
-                State.activeId = State.datasets[0].id;
-            } else if (State.datasets.length === 0) {
-                State.activeId = null;
-            }
-            renderAll();
+        tpInput.value = State.displayMode === 'value' ? tpDisp.toFixed(5) : tpDisp.toFixed(1);
+        document.getElementById('risk-profit-money').innerText = `$${(riskMoney * rr).toFixed(2)}`;
+    } else if (source === 'tp') {
+        const tpDisp = parseFloat(tpInput.value) || 0;
+        let tpPips;
+        switch (State.displayMode) {
+            case 'pips': tpPips = tpDisp; break;
+            case 'points': tpPips = tpDisp / 10; break;
+            case 'value': tpPips = tpDisp * (State.stats?.pipMult || 10000); break;
         }
 
-        async function setActiveDataset(id) {
-            State.activeId = id;
-            renderAll();
+        const rr = tpPips / slPips;
+        rrInput.value = rr.toFixed(2);
+        document.getElementById('risk-profit-money').innerText = `$${(riskMoney * rr).toFixed(2)}`;
+    }
+
+    updateBotPanel();
+}
+
+// ==========================================
+// 7. BOT / EJECUCIÓN PRO
+// ==========================================
+function updateBotPanel() {
+    if (!document.getElementById('bot-display-lots')) return;
+    const lots = State.currentLots || 0;
+    const slDisp = document.getElementById('risk-sl').value || '0';
+    const tpDisp = document.getElementById('risk-tp-input').value || '0';
+
+    document.getElementById('bot-display-lots').innerText = lots.toFixed(2);
+    document.getElementById('bot-display-sl').innerHTML = `${slDisp} <span class="text-xs text-slate-500">${document.getElementById('sl-mode-label').innerText}</span>`;
+    document.getElementById('bot-display-tp').innerHTML = `${tpDisp} <span class="text-xs text-slate-500">${document.getElementById('tp-mode-label').innerText}</span>`;
+
+    // Pre-fill realistic price if available and not manually overridden
+    const priceInput = document.getElementById('bot-precio-actual');
+    if (!priceInput.dataset.manual && State.processedData && State.processedData.length > 0) {
+        const lastCandle = State.processedData[State.processedData.length - 1];
+        if (lastCandle && lastCandle.close) {
+            priceInput.value = lastCandle.close;
+        }
+    } else if (!priceInput.value) {
+        priceInput.value = "1.10500";
+    }
+}
+
+document.getElementById('bot-precio-actual')?.addEventListener('input', function () {
+    this.dataset.manual = "true";
+});
+
+function logMensajeBot(mensaje) {
+    const consola = document.getElementById('bot-consola');
+    if (!consola) return;
+    const tiempo = new Date().toLocaleTimeString();
+    consola.innerHTML += `<div><span class="text-slate-500">[${tiempo}]</span> ${mensaje}</div>`;
+    consola.scrollTop = consola.scrollHeight;
+}
+
+async function abrirOperacionEURUSD(side) {
+    const symbol = "EURUSD";
+    const lots = State.currentLots || 0;
+    const priceInput = document.getElementById('bot-precio-actual').value;
+
+    if (lots <= 0) {
+        logMensajeBot(`<span class="text-red-400">❌ Error: El lotaje debe ser mayor a 0. Ajusta la calculadora de riesgo.</span>`);
+        return;
+    }
+
+    logMensajeBot(`Iniciando evaluación algorítmica para ${symbol}...`);
+
+    try {
+        // PASO A: Capturar el precio actual del input
+        const precioEjecucion = parseFloat(priceInput);
+        if (isNaN(precioEjecucion)) throw new Error("Precio de ejecución inválido");
+
+        logMensajeBot(`Precio de mercado confirmado: <span class="text-white">${precioEjecucion}</span>`);
+
+        // PASO B: Calcular SL y TP exactos basado en pips y dirección
+        const slPips = State.currentSlPips || 0;
+        const rr = parseFloat(document.getElementById('risk-rr-input').value) || 0;
+        const tpPips = slPips * rr;
+
+        let precioSL, precioTP;
+        if (side === 'BUY') {
+            precioSL = precioEjecucion - (slPips * 0.0001);
+            precioTP = precioEjecucion + (tpPips * 0.0001);
+        } else {
+            precioSL = precioEjecucion + (slPips * 0.0001);
+            precioTP = precioEjecucion - (tpPips * 0.0001);
         }
 
-        async function deleteDataset(id) {
-            await DB.delete(id);
-            if (State.activeId === id) State.activeId = null;
-            loadDatasets();
-        }
-
-        // UI Tabs
-        document.querySelectorAll('.nav-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                // Estilos
-                document.querySelectorAll('.nav-btn').forEach(b => {
-                    b.className = 'nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all text-slate-400 hover:bg-slate-800 hover:text-slate-200';
-                });
-                btn.className = 'nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all bg-blue-600 text-white shadow-md';
-
-                // Mostrar/Ocultar
-                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-                document.getElementById(btn.dataset.target).classList.add('active');
-            });
-        });
-
-        // Time Filters
-        document.querySelectorAll('.time-filter-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                document.querySelectorAll('.time-filter-btn').forEach(b => {
-                    b.className = 'time-filter-btn px-3 py-1.5 rounded text-xs font-medium text-slate-400 hover:text-white hover:bg-slate-800 shrink-0';
-                });
-                btn.className = 'time-filter-btn px-3 py-1.5 rounded text-xs font-medium bg-blue-600 text-white shrink-0';
-                State.timeFilter = btn.dataset.tf;
-                renderAll();
-            });
-        });
-
-        // Date Filters
-        document.getElementById('date-start').addEventListener('change', (e) => {
-            State.dateStart = e.target.value;
-            renderAll();
-        });
-        document.getElementById('date-end').addEventListener('change', (e) => {
-            State.dateEnd = e.target.value;
-            renderAll();
-        });
-        document.getElementById('btn-date-clear').addEventListener('click', () => {
-            document.getElementById('date-start').value = '';
-            document.getElementById('date-end').value = '';
-            State.dateStart = null;
-            State.dateEnd = null;
-            renderAll();
-        });
-
-        // Actualización de App
-        document.getElementById('btn-update-app')?.addEventListener('click', () => {
-            if (newWorker) newWorker.postMessage({ action: 'skipWaiting' });
-        });
-
-        // Easter Egg: Forzar Actualización con 3 clicks en la versión
-        let versionClicks = 0;
-        let versionClickTimer;
-        document.getElementById('app-version-label')?.addEventListener('click', () => {
-            versionClicks++;
-            if (versionClicks >= 3) {
-                alert('Forzando actualización de la PWA...');
-                if ('serviceWorker' in navigator) {
-                    navigator.serviceWorker.getRegistrations().then(regs => {
-                        for (let reg of regs) {
-                            reg.unregister();
-                        }
-                    }).then(() => {
-                        window.location.reload(true);
-                    });
-                } else {
-                    window.location.reload(true);
-                }
-            }
-            clearTimeout(versionClickTimer);
-            versionClickTimer = setTimeout(() => versionClicks = 0, 1000);
-        });
-
-        // Display Mode Buttons
-        document.querySelectorAll('.display-mode-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                State.displayMode = btn.dataset.mode;
-                document.querySelectorAll('.display-mode-btn').forEach(b => {
-                    b.className = 'display-mode-btn px-3 py-1.5 rounded text-xs font-bold text-slate-400 hover:text-white hover:bg-slate-800 transition-all';
-                });
-                btn.className = 'display-mode-btn px-3 py-1.5 rounded text-xs font-bold bg-blue-600 text-white transition-all';
-                renderStatsTabs();
-                calcRisk();
-            });
-        });
-
-        // Eventos Generales
-        document.getElementById('file-input').addEventListener('change', e => {
-            if (e.target.files[0]) parseCSV(e.target.files[0]);
-        });
-
-        document.getElementById('btn-load-default')?.addEventListener('click', async () => {
-            try {
-                showLoader("Descargando archivo del servidor...");
-                const response = await fetch('EURUSD_M1_202412122350_202604221916.csv');
-                if (!response.ok) throw new Error("No se pudo descargar el archivo del servidor.");
-                const blob = await response.blob();
-                const file = new File([blob], 'EURUSD_M1_202412122350_202604221916.csv', { type: 'text/csv' });
-                
-                hideLoader();
-                parseCSV(file);
-            } catch (err) {
-                hideLoader();
-                alert(err.message);
-            }
-        });
-
-        document.getElementById('btn-recalc-ind').addEventListener('click', renderAll);
-
-        // Eventos de Calculadora de Riesgo — base
-        ['risk-balance', 'risk-percent', 'risk-pip-value', 'risk-leverage'].forEach(id => {
-            document.getElementById(id).addEventListener('input', calcRisk);
-        });
-
-        // Modo A: inputs
-        ['risk-candle-idx', 'risk-strategy'].forEach(id => {
-            document.getElementById(id)?.addEventListener('input', calcRisk);
-        });
-
-        // Si el usuario edita el SL manualmente → estrategia manual
-        document.getElementById('risk-sl').addEventListener('input', () => {
-            document.getElementById('risk-strategy').value = 'manual';
-            calcRisk();
-        });
-
-        // Modo B: input de lotaje
-        document.getElementById('risk-lots-input').addEventListener('input', calcRisk);
-
-        // Proyección TP
-        document.getElementById('risk-rr-input').addEventListener('input', () => calcTPProj('rr'));
-        document.getElementById('risk-tp-input').addEventListener('input', () => calcTPProj('tp'));
-
-        // Bot de Trading
-        document.getElementById('btnEjecutarBotBuy')?.addEventListener('click', () => abrirOperacionEURUSD('BUY'));
-        document.getElementById('btnEjecutarBotSell')?.addEventListener('click', () => abrirOperacionEURUSD('SELL'));
-
-        // Split View
-        document.getElementById('btn-calc-split')?.addEventListener('click', () => renderSplitView(null));
-        document.getElementById('split-metric')?.addEventListener('change', () => renderSplitView(null));
-        document.getElementById('split-stat')?.addEventListener('change', () => renderSplitView(null));
-        document.getElementById('split-group')?.addEventListener('change', () => renderSplitView(null));
-
-        // Toggle de modo de calculadora
-        document.getElementById('calc-mode-sl-to-lots').addEventListener('click', () => {
-            State.calcMode = 'sl-to-lots';
-            document.getElementById('calc-mode-sl-to-lots').className = 'calc-mode-btn px-4 py-2 rounded text-sm font-semibold bg-blue-600 text-white transition-all';
-            document.getElementById('calc-mode-lots-to-sl').className = 'calc-mode-btn px-4 py-2 rounded text-sm font-semibold text-slate-400 hover:text-white hover:bg-slate-800 transition-all';
-            document.getElementById('calc-panel-sl-to-lots').classList.remove('hidden');
-            document.getElementById('calc-panel-lots-to-sl').classList.add('hidden');
-            document.getElementById('result-lots-panel').classList.remove('hidden');
-            document.getElementById('result-sl-panel').classList.add('hidden');
-            calcRisk();
-        });
-
-        document.getElementById('calc-mode-lots-to-sl').addEventListener('click', () => {
-            State.calcMode = 'lots-to-sl';
-            document.getElementById('calc-mode-lots-to-sl').className = 'calc-mode-btn px-4 py-2 rounded text-sm font-semibold bg-blue-600 text-white transition-all';
-            document.getElementById('calc-mode-sl-to-lots').className = 'calc-mode-btn px-4 py-2 rounded text-sm font-semibold text-slate-400 hover:text-white hover:bg-slate-800 transition-all';
-            document.getElementById('calc-panel-lots-to-sl').classList.remove('hidden');
-            document.getElementById('calc-panel-sl-to-lots').classList.add('hidden');
-            document.getElementById('result-sl-panel').classList.remove('hidden');
-            document.getElementById('result-lots-panel').classList.add('hidden');
-            calcRisk();
-        });
-
-        // Evento: Columna Calculada (Críticidad mode)
-        document.getElementById('btn-add-calc').addEventListener('click', async () => {
-            if (!State.activeId) return;
-            const name = prompt("Nombre de la nueva columna calculada:");
-            if (!name) return;
-            const formula = prompt(`Fórmula en JavaScript usando los nombres de columna (ej. open, high, low, close, vol).\n\nEjemplo para rango de vela:\nhigh - low`);
-            if (!formula) return;
-
-            const ds = State.datasets.find(d => d.id === State.activeId);
-            if (!ds.customColumns) ds.customColumns = [];
-            ds.customColumns.push({ name: name.toLowerCase().replace(/ /g, '_'), formula });
-
-            showLoader("Aplicando Fórmula...");
-            await DB.save(ds);
-            await loadDatasets();
-        });
-
-        // ==========================================
-        // 7. RELOJ DE TRADING
-        // ==========================================
-        function initTradingClock() {
-            const mt5El = document.getElementById('clock-mt5-time');
-            const localEl = document.getElementById('clock-local-time');
-            const leftEl = document.getElementById('clock-time-left');
-            const miniMt5El = document.getElementById('mini-mt5');
-            const miniLeftEl = document.getElementById('mini-left');
-            
-            if(!mt5El || !localEl || !leftEl) return;
-
-            const updateClock = () => {
-                try {
-                    const now = new Date();
-                    
-                    let mt5TimeStr = '--:--:--';
-                    try {
-                        mt5TimeStr = now.toLocaleTimeString('es-ES', { timeZone: 'Europe/Athens', hour12: false });
-                    } catch(e) {
-                        mt5TimeStr = now.toLocaleTimeString('es-ES', { hour12: false });
-                    }
-                    mt5El.textContent = mt5TimeStr;
-                    
-                    const localDateStr = now.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: '2-digit' });
-                    const localTimeStr = now.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-                    localEl.textContent = `Local: ${localDateStr} ${localTimeStr}`;
-
-                    let tfMs = 3600000; // Por defecto 1H
-                    if (State && State.processedData && State.processedData.length >= 2) {
-                        const l = State.processedData.length;
-                        const d1 = new Date(State.processedData[l-1].datetime).getTime();
-                        const d2 = new Date(State.processedData[l-2].datetime).getTime();
-                        const diff = Math.abs(d1 - d2);
-                        if (diff >= 60000 && diff <= 86400000) {
-                            tfMs = diff;
-                        }
-                    }
-
-                    const nowMs = now.getTime();
-                    let nextCandleMs = nowMs;
-                    
-                    if (State && State.processedData && State.processedData.length > 0) {
-                        const lastCandleMs = new Date(State.processedData[State.processedData.length-1].datetime).getTime();
-                        const intervalsPassed = Math.floor((nowMs - lastCandleMs) / tfMs);
-                        nextCandleMs = lastCandleMs + (intervalsPassed + 1) * tfMs;
-                        if (nowMs < lastCandleMs) {
-                           nextCandleMs = lastCandleMs;
-                        }
-                    } else {
-                        nextCandleMs = nowMs + (tfMs - (nowMs % tfMs));
-                    }
-                    
-                    const timeLeftMs = Math.max(0, nextCandleMs - nowMs);
-
-                    const s = Math.floor(timeLeftMs / 1000) % 60;
-                    const m = Math.floor(timeLeftMs / 60000) % 60;
-                    const h = Math.floor(timeLeftMs / 3600000);
-
-                    if (h > 0) {
-                        const timeStr = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-                        leftEl.textContent = timeStr;
-                        if(miniLeftEl) miniLeftEl.textContent = timeStr;
-                    } else {
-                        const timeStr = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-                        leftEl.textContent = timeStr;
-                        if(miniLeftEl) miniLeftEl.textContent = timeStr;
-                    }
-                    
-                    if (timeLeftMs <= 60000) {
-                        leftEl.classList.remove('text-blue-400');
-                        leftEl.classList.add('text-red-400', 'animate-pulse');
-                        if(miniLeftEl) {
-                            miniLeftEl.classList.remove('text-blue-400');
-                            miniLeftEl.classList.add('text-red-400', 'animate-pulse');
-                        }
-                    } else {
-                        leftEl.classList.remove('text-red-400', 'animate-pulse');
-                        leftEl.classList.add('text-blue-400');
-                        if(miniLeftEl) {
-                            miniLeftEl.classList.remove('text-red-400', 'animate-pulse');
-                            miniLeftEl.classList.add('text-blue-400');
-                        }
-                    }
-
-                    if(miniMt5El) {
-                        const nowMt5 = mt5TimeStr.split(':').slice(0, 2).join(':');
-                        miniMt5El.textContent = nowMt5;
-                    }
-                } catch (e) {
-                    console.error("Error en reloj:", e);
-                }
-            };
-
-            updateClock();
-            setInterval(updateClock, 1000);
-
-            // Funcionalidad de expansión en móvil
-            const floatingClock = document.getElementById('floating-clock');
-            const clockDetails = document.getElementById('clock-details');
-            const clockMini = document.getElementById('clock-mini');
-            
-            if (floatingClock && clockDetails && clockMini) {
-                floatingClock.addEventListener('click', function() {
-
-                    if (clockDetails.classList.contains('hidden')) {
-                        // Expandir
-                        clockDetails.classList.remove('hidden');
-                        setTimeout(() => clockDetails.classList.remove('opacity-0'), 50);
-                        clockMini.classList.add('hidden');
-                        this.classList.remove('bg-slate-800/60', 'border-slate-700/50', 'rounded-full');
-                        this.classList.add('bg-slate-800/95', 'border-slate-700', 'rounded-xl');
-                        
-                        // Auto-colapsar
-                        clearTimeout(this.collapseTimer);
-                        this.collapseTimer = setTimeout(() => {
-                            clockDetails.classList.add('opacity-0');
-                            setTimeout(() => {
-                                clockDetails.classList.add('hidden');
-                                clockMini.classList.remove('hidden');
-                                this.classList.remove('bg-slate-800/95', 'border-slate-700', 'rounded-xl');
-                                this.classList.add('bg-slate-800/60', 'border-slate-700/50', 'rounded-full');
-                            }, 300);
-                        }, 4000);
-                    } else {
-                        // Colapsar manual
-                        clearTimeout(this.collapseTimer);
-                        clockDetails.classList.add('opacity-0');
-                        setTimeout(() => {
-                            clockDetails.classList.add('hidden');
-                            clockMini.classList.remove('hidden');
-                            this.classList.remove('bg-slate-800/95', 'border-slate-700', 'rounded-xl');
-                            this.classList.add('bg-slate-800/60', 'border-slate-700/50', 'rounded-full');
-                        }, 300);
-                    }
-                });
-            }
-        }
-
-        // INICIALIZACIÓN
-        initTradingClock();
-        window.onload = () => {
-            loadDatasets();
+        const orden = {
+            instrument: symbol,
+            units: lots * 100000,
+            type: "MARKET",
+            side: side,
+            stopLoss: precioSL.toFixed(5),
+            takeProfit: precioTP.toFixed(5)
         };
+
+        logMensajeBot(`Condiciones óptimas. Enviando orden de ${side === 'BUY' ? 'COMPRA' : 'VENTA'}:`);
+        logMensajeBot(`<span class="text-slate-400">${JSON.stringify(orden)}</span>`);
+
+        await new Promise(resolve => setTimeout(resolve, 800)); // Simulate API call
+
+        // PASO D: Confirmación simulada
+        const ticketSimulado = Math.floor(Math.random() * 1000000);
+        logMensajeBot(`<span class="text-emerald-400">✅ Éxito. Operación abierta a ${precioEjecucion}. Ticket: #${ticketSimulado}</span>`);
+        logMensajeBot(`<span class="text-red-300">-> SL fijado en: ${precioSL.toFixed(5)}</span>`);
+        logMensajeBot(`<span class="text-emerald-300">-> TP fijado en: ${precioTP.toFixed(5)}</span>`);
+
+    } catch (error) {
+        logMensajeBot(`<span class="text-red-400">❌ Error crítico: ${error.message}</span>`);
+    }
+}
+
+// ==========================================
+// 7. EVENTOS Y CONTROLADORES
+// ==========================================
+async function loadDatasets() {
+    State.datasets = await DB.getAll();
+    if (State.datasets.length > 0 && !State.activeId) {
+        State.activeId = State.datasets[0].id;
+    } else if (State.datasets.length === 0) {
+        State.activeId = null;
+    }
+    renderAll();
+}
+
+async function setActiveDataset(id) {
+    State.activeId = id;
+    renderAll();
+}
+
+async function deleteDataset(id) {
+    await DB.delete(id);
+    if (State.activeId === id) State.activeId = null;
+    loadDatasets();
+}
+
+// UI Tabs
+document.querySelectorAll('.nav-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+        // Estilos
+        document.querySelectorAll('.nav-btn').forEach(b => {
+            b.className = 'nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all text-slate-400 hover:bg-slate-800 hover:text-slate-200';
+        });
+        btn.className = 'nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all bg-blue-600 text-white shadow-md';
+
+        // Mostrar/Ocultar
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        document.getElementById(btn.dataset.target).classList.add('active');
+    });
+});
+
+// Time Filters
+document.querySelectorAll('.time-filter-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+        document.querySelectorAll('.time-filter-btn').forEach(b => {
+            b.className = 'time-filter-btn px-3 py-1.5 rounded text-xs font-medium text-slate-400 hover:text-white hover:bg-slate-800 shrink-0';
+        });
+        btn.className = 'time-filter-btn px-3 py-1.5 rounded text-xs font-medium bg-blue-600 text-white shrink-0';
+        State.timeFilter = btn.dataset.tf;
+        renderAll();
+    });
+});
+
+// Date Filters
+document.getElementById('date-start').addEventListener('change', (e) => {
+    State.dateStart = e.target.value;
+    renderAll();
+});
+document.getElementById('date-end').addEventListener('change', (e) => {
+    State.dateEnd = e.target.value;
+    renderAll();
+});
+document.getElementById('btn-date-clear').addEventListener('click', () => {
+    document.getElementById('date-start').value = '';
+    document.getElementById('date-end').value = '';
+    State.dateStart = null;
+    State.dateEnd = null;
+    renderAll();
+});
+
+// Actualización de App
+document.getElementById('btn-update-app')?.addEventListener('click', () => {
+    if (newWorker) newWorker.postMessage({ action: 'skipWaiting' });
+});
+
+// Easter Egg: Forzar Actualización con 3 clicks en la versión
+let versionClicks = 0;
+let versionClickTimer;
+document.getElementById('app-version-label')?.addEventListener('click', () => {
+    versionClicks++;
+    if (versionClicks >= 3) {
+        alert('Forzando actualización de la PWA...');
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(regs => {
+                for (let reg of regs) {
+                    reg.unregister();
+                }
+            }).then(() => {
+                window.location.reload(true);
+            });
+        } else {
+            window.location.reload(true);
+        }
+    }
+    clearTimeout(versionClickTimer);
+    versionClickTimer = setTimeout(() => versionClicks = 0, 1000);
+});
+
+// Display Mode Buttons
+document.querySelectorAll('.display-mode-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        State.displayMode = btn.dataset.mode;
+        document.querySelectorAll('.display-mode-btn').forEach(b => {
+            b.className = 'display-mode-btn px-3 py-1.5 rounded text-xs font-bold text-slate-400 hover:text-white hover:bg-slate-800 transition-all';
+        });
+        btn.className = 'display-mode-btn px-3 py-1.5 rounded text-xs font-bold bg-blue-600 text-white transition-all';
+        renderStatsTabs();
+        calcRisk();
+    });
+});
+
+// Eventos Generales
+document.getElementById('file-input').addEventListener('change', e => {
+    if (e.target.files[0]) parseCSV(e.target.files[0]);
+});
+
+document.getElementById('btn-load-default')?.addEventListener('click', async () => {
+    try {
+        showLoader("Descargando archivo del servidor...");
+        const response = await fetch('EURUSD_M1_202412122350_202604221916.csv');
+        if (!response.ok) throw new Error("No se pudo descargar el archivo del servidor.");
+        const blob = await response.blob();
+        const file = new File([blob], 'EURUSD_M1_202412122350_202604221916.csv', { type: 'text/csv' });
+
+        hideLoader();
+        parseCSV(file);
+    } catch (err) {
+        hideLoader();
+        alert(err.message);
+    }
+});
+
+document.getElementById('btn-recalc-ind').addEventListener('click', renderAll);
+
+// Eventos de Calculadora de Riesgo — base
+['risk-balance', 'risk-percent', 'risk-pip-value', 'risk-leverage'].forEach(id => {
+    document.getElementById(id).addEventListener('input', calcRisk);
+});
+
+// Modo A: inputs
+['risk-candle-idx', 'risk-strategy'].forEach(id => {
+    document.getElementById(id)?.addEventListener('input', calcRisk);
+});
+
+// Si el usuario edita el SL manualmente → estrategia manual
+document.getElementById('risk-sl').addEventListener('input', () => {
+    document.getElementById('risk-strategy').value = 'manual';
+    calcRisk();
+});
+
+// Modo B: input de lotaje
+document.getElementById('risk-lots-input').addEventListener('input', calcRisk);
+
+// Proyección TP
+document.getElementById('risk-rr-input').addEventListener('input', () => calcTPProj('rr'));
+document.getElementById('risk-tp-input').addEventListener('input', () => calcTPProj('tp'));
+
+// Bot de Trading
+document.getElementById('btnEjecutarBotBuy')?.addEventListener('click', () => abrirOperacionEURUSD('BUY'));
+document.getElementById('btnEjecutarBotSell')?.addEventListener('click', () => abrirOperacionEURUSD('SELL'));
+
+// Split View
+document.getElementById('btn-calc-split')?.addEventListener('click', () => renderSplitView(null));
+document.getElementById('split-metric')?.addEventListener('change', () => renderSplitView(null));
+document.getElementById('split-stat')?.addEventListener('change', () => renderSplitView(null));
+document.getElementById('split-group')?.addEventListener('change', () => renderSplitView(null));
+
+// Toggle de modo de calculadora
+document.getElementById('calc-mode-sl-to-lots').addEventListener('click', () => {
+    State.calcMode = 'sl-to-lots';
+    document.getElementById('calc-mode-sl-to-lots').className = 'calc-mode-btn px-4 py-2 rounded text-sm font-semibold bg-blue-600 text-white transition-all';
+    document.getElementById('calc-mode-lots-to-sl').className = 'calc-mode-btn px-4 py-2 rounded text-sm font-semibold text-slate-400 hover:text-white hover:bg-slate-800 transition-all';
+    document.getElementById('calc-panel-sl-to-lots').classList.remove('hidden');
+    document.getElementById('calc-panel-lots-to-sl').classList.add('hidden');
+    document.getElementById('result-lots-panel').classList.remove('hidden');
+    document.getElementById('result-sl-panel').classList.add('hidden');
+    calcRisk();
+});
+
+document.getElementById('calc-mode-lots-to-sl').addEventListener('click', () => {
+    State.calcMode = 'lots-to-sl';
+    document.getElementById('calc-mode-lots-to-sl').className = 'calc-mode-btn px-4 py-2 rounded text-sm font-semibold bg-blue-600 text-white transition-all';
+    document.getElementById('calc-mode-sl-to-lots').className = 'calc-mode-btn px-4 py-2 rounded text-sm font-semibold text-slate-400 hover:text-white hover:bg-slate-800 transition-all';
+    document.getElementById('calc-panel-lots-to-sl').classList.remove('hidden');
+    document.getElementById('calc-panel-sl-to-lots').classList.add('hidden');
+    document.getElementById('result-sl-panel').classList.remove('hidden');
+    document.getElementById('result-lots-panel').classList.add('hidden');
+    calcRisk();
+});
+
+// Evento: Columna Calculada (Críticidad mode)
+document.getElementById('btn-add-calc').addEventListener('click', async () => {
+    if (!State.activeId) return;
+    const name = prompt("Nombre de la nueva columna calculada:");
+    if (!name) return;
+    const formula = prompt(`Fórmula en JavaScript usando los nombres de columna (ej. open, high, low, close, vol).\n\nEjemplo para rango de vela:\nhigh - low`);
+    if (!formula) return;
+
+    const ds = State.datasets.find(d => d.id === State.activeId);
+    if (!ds.customColumns) ds.customColumns = [];
+    ds.customColumns.push({ name: name.toLowerCase().replace(/ /g, '_'), formula });
+
+    showLoader("Aplicando Fórmula...");
+    await DB.save(ds);
+    await loadDatasets();
+});
+
+// ==========================================
+// 7. RELOJ DE TRADING
+// ==========================================
+function initTradingClock() {
+    const mt5El = document.getElementById('clock-mt5-time');
+    const localEl = document.getElementById('clock-local-time');
+    const leftEl = document.getElementById('clock-time-left');
+    const miniMt5El = document.getElementById('mini-mt5');
+    const miniLeftEl = document.getElementById('mini-left');
+
+    if (!mt5El || !localEl || !leftEl) return;
+
+    const updateClock = () => {
+        try {
+            const now = new Date();
+
+            let mt5TimeStr = '--:--:--';
+            try {
+                mt5TimeStr = now.toLocaleTimeString('es-ES', { timeZone: 'Europe/Athens', hour12: false });
+            } catch (e) {
+                mt5TimeStr = now.toLocaleTimeString('es-ES', { hour12: false });
+            }
+            mt5El.textContent = mt5TimeStr;
+
+            const localDateStr = now.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: '2-digit' });
+            const localTimeStr = now.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            localEl.textContent = `Local: ${localDateStr} ${localTimeStr}`;
+
+            let tfMs = 3600000; // Por defecto 1H
+            if (State && State.processedData && State.processedData.length >= 2) {
+                const l = State.processedData.length;
+                const d1 = new Date(State.processedData[l - 1].datetime).getTime();
+                const d2 = new Date(State.processedData[l - 2].datetime).getTime();
+                const diff = Math.abs(d1 - d2);
+                if (diff >= 60000 && diff <= 86400000) {
+                    tfMs = diff;
+                }
+            }
+
+            const nowMs = now.getTime();
+            let nextCandleMs = nowMs;
+
+            if (State && State.processedData && State.processedData.length > 0) {
+                const lastCandleMs = new Date(State.processedData[State.processedData.length - 1].datetime).getTime();
+                const intervalsPassed = Math.floor((nowMs - lastCandleMs) / tfMs);
+                nextCandleMs = lastCandleMs + (intervalsPassed + 1) * tfMs;
+                if (nowMs < lastCandleMs) {
+                    nextCandleMs = lastCandleMs;
+                }
+            } else {
+                nextCandleMs = nowMs + (tfMs - (nowMs % tfMs));
+            }
+
+            const timeLeftMs = Math.max(0, nextCandleMs - nowMs);
+
+            const s = Math.floor(timeLeftMs / 1000) % 60;
+            const m = Math.floor(timeLeftMs / 60000) % 60;
+            const h = Math.floor(timeLeftMs / 3600000);
+
+            if (h > 0) {
+                const timeStr = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+                leftEl.textContent = timeStr;
+                if (miniLeftEl) miniLeftEl.textContent = timeStr;
+            } else {
+                const timeStr = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+                leftEl.textContent = timeStr;
+                if (miniLeftEl) miniLeftEl.textContent = timeStr;
+            }
+
+            if (timeLeftMs <= 60000) {
+                leftEl.classList.remove('text-blue-400');
+                leftEl.classList.add('text-red-400', 'animate-pulse');
+                if (miniLeftEl) {
+                    miniLeftEl.classList.remove('text-blue-400');
+                    miniLeftEl.classList.add('text-red-400', 'animate-pulse');
+                }
+            } else {
+                leftEl.classList.remove('text-red-400', 'animate-pulse');
+                leftEl.classList.add('text-blue-400');
+                if (miniLeftEl) {
+                    miniLeftEl.classList.remove('text-red-400', 'animate-pulse');
+                    miniLeftEl.classList.add('text-blue-400');
+                }
+            }
+
+            if (miniMt5El) {
+                const nowMt5 = mt5TimeStr.split(':').slice(0, 2).join(':');
+                miniMt5El.textContent = nowMt5;
+            }
+        } catch (e) {
+            console.error("Error en reloj:", e);
+        }
+    };
+
+    updateClock();
+    setInterval(updateClock, 1000);
+
+    // Funcionalidad de expansión en móvil
+    const floatingClock = document.getElementById('floating-clock');
+    const clockDetails = document.getElementById('clock-details');
+    const clockMini = document.getElementById('clock-mini');
+
+    if (floatingClock && clockDetails && clockMini) {
+        floatingClock.addEventListener('click', function () {
+
+            if (clockDetails.classList.contains('hidden')) {
+                // Expandir
+                clockDetails.classList.remove('hidden');
+                setTimeout(() => clockDetails.classList.remove('opacity-0'), 50);
+                clockMini.classList.add('hidden');
+                this.classList.remove('bg-slate-800/60', 'border-slate-700/50', 'rounded-full');
+                this.classList.add('bg-slate-800/95', 'border-slate-700', 'rounded-xl');
+
+                // Auto-colapsar
+                clearTimeout(this.collapseTimer);
+                this.collapseTimer = setTimeout(() => {
+                    clockDetails.classList.add('opacity-0');
+                    setTimeout(() => {
+                        clockDetails.classList.add('hidden');
+                        clockMini.classList.remove('hidden');
+                        this.classList.remove('bg-slate-800/95', 'border-slate-700', 'rounded-xl');
+                        this.classList.add('bg-slate-800/60', 'border-slate-700/50', 'rounded-full');
+                    }, 300);
+                }, 4000);
+            } else {
+                // Colapsar manual
+                clearTimeout(this.collapseTimer);
+                clockDetails.classList.add('opacity-0');
+                setTimeout(() => {
+                    clockDetails.classList.add('hidden');
+                    clockMini.classList.remove('hidden');
+                    this.classList.remove('bg-slate-800/95', 'border-slate-700', 'rounded-xl');
+                    this.classList.add('bg-slate-800/60', 'border-slate-700/50', 'rounded-full');
+                }, 300);
+            }
+        });
+    }
+}
+
+// INICIALIZACIÓN
+initTradingClock();
+window.onload = () => {
+    loadDatasets();
+};
