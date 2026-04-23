@@ -128,23 +128,42 @@
 
                 if (lines.length < 2) throw new Error("Archivo muy corto.");
 
-                const headers = lines[0].split(delimiter).map(h => h.replace(/<|>/g, '').toLowerCase());
+                let headers = [];
+                let iD = -1, iT = -1, iO = -1, iH = -1, iL = -1, iC = -1, iTV = -1, iV = -1, iS = -1;
+                let startIndex = 0;
 
-                // Buscar indices estandar
-                const iD = headers.findIndex(h => h === 'date' || h.includes('date') || h === 'd');
-                const iT = headers.findIndex(h => h === 'time' || h.includes('time') || h === 't');
-                const iO = headers.findIndex(h => h === 'open' || h.includes('open') || h === 'o');
-                const iH = headers.findIndex(h => h === 'high' || h.includes('high') || h === 'h');
-                const iL = headers.findIndex(h => h === 'low' || h.includes('low') || h === 'l');
-                const iC = headers.findIndex(h => h === 'close' || h.includes('close') || h === 'c');
-                const iTV = headers.findIndex(h => h === 'tickvol' || h.includes('tickvol') || h === 'tv');
-                const iV = headers.findIndex(h => h === 'vol' || h === 'volume' || h === 'v');
-                const iS = headers.findIndex(h => h === 'spread' || h.includes('spread') || h === 'sp');
+                const firstRowParts = lines[0].split(delimiter);
+                const hasHeaders = isNaN(parseFloat(firstRowParts[1]));
+
+                if (hasHeaders) {
+                    headers = firstRowParts.map(h => h.replace(/<|>/g, '').toLowerCase());
+                    iD = headers.findIndex(h => h === 'date' || h.includes('date') || h === 'd');
+                    iT = headers.findIndex(h => h === 'time' || h.includes('time') || h === 't');
+                    iO = headers.findIndex(h => h === 'open' || h.includes('open') || h === 'o');
+                    iH = headers.findIndex(h => h === 'high' || h.includes('high') || h === 'h');
+                    iL = headers.findIndex(h => h === 'low' || h.includes('low') || h === 'l');
+                    iC = headers.findIndex(h => h === 'close' || h.includes('close') || h === 'c');
+                    iTV = headers.findIndex(h => h === 'tickvol' || h.includes('tickvol') || h === 'tv');
+                    iV = headers.findIndex(h => h === 'vol' || h === 'volume' || h === 'v');
+                    iS = headers.findIndex(h => h === 'spread' || h.includes('spread') || h === 'sp');
+                    startIndex = 1;
+                } else {
+                    // Inferir columnas por cantidad
+                    if (firstRowParts.length === 7) {
+                        iD = 0; iT = -1; iO = 1; iH = 2; iL = 3; iC = 4; iTV = 5; iV = 6;
+                    } else if (firstRowParts.length >= 8) {
+                        iD = 0; iT = 1; iO = 2; iH = 3; iL = 4; iC = 5; iTV = 6; iV = 7; iS = 8;
+                    } else {
+                        // Fallback básico
+                        iD = 0; iO = 1; iH = 2; iL = 3; iC = 4;
+                    }
+                    startIndex = 0;
+                }
 
                 if (iO === -1 || iC === -1) throw new Error("Faltan columnas Open/Close");
 
                 const data = [];
-                for (let i = 1; i < lines.length; i++) {
+                for (let i = startIndex; i < lines.length; i++) {
                     const cols = lines[i].split(delimiter);
                     if (cols.length < 4) continue;
 
