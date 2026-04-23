@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+    <!-- Background Gradient -->
+    <defs>
+        <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#1e293b"/>
+            <stop offset="100%" stop-color="#0f172a"/>
+        </linearGradient>
+        <linearGradient id="line" x1="0%" y1="100%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="#60a5fa"/>
+            <stop offset="100%" stop-color="#818cf8"/>
+        </linearGradient>
+    </defs>
+    
+    <!-- App Icon Base (Square for maskable) -->
+    <rect width="512" height="512" fill="url(#bg)"/>
+    
+    <!-- Grid -->
+    <path d="M 0 128 L 512 128 M 0 256 L 512 256 M 0 384 L 512 384 M 128 0 L 128 512 M 256 0 L 256 512 M 384 0 L 384 512" fill="none" stroke="#334155" stroke-width="4" opacity="0.3"/>
+
+    <!-- Candlestick Backdrops (Wicks) -->
+    <rect x="160" y="220" width="16" height="160" rx="8" fill="#10b981" opacity="0.5"/>
+    <rect x="336" y="140" width="16" height="200" rx="8" fill="#3b82f6" opacity="0.5"/>
+    
+    <!-- Candlesticks (Bodies) -->
+    <rect x="144" y="260" width="48" height="90" rx="12" fill="#10b981"/>
+    <rect x="320" y="180" width="48" height="120" rx="12" fill="#3b82f6"/>
+    
+    <!-- Trend Line -->
+    <path d="M 60 400 L 168 280 L 260 320 L 344 190 L 452 100" fill="none" stroke="url(#line)" stroke-width="36" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

@@ -664,22 +664,41 @@
                 return null;
             };
 
-            // Recolectar datos por hora para el Heatmap y proyecciones
-            const hoursData = Array.from({length: 24}, () => ({ buy: [], sell: [] }));
+            const grouping = document.getElementById('split-group')?.value || 'hour';
+            let numGroups = 24;
+            let groupLabels = [];
+            if (grouping === 'hour') {
+                numGroups = 24;
+                groupLabels = Array.from({length: 24}, (_, i) => `${i}h`);
+            } else if (grouping === 'day') {
+                numGroups = 7;
+                groupLabels = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+            } else if (grouping === 'month') {
+                numGroups = 12;
+                groupLabels = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+            }
+
+            // Recolectar datos por grupo para el Heatmap y proyecciones
+            const groupsData = Array.from({length: numGroups}, () => ({ buy: [], sell: [] }));
             let globalBuy = [];
             let globalSell = [];
 
             State.processedData.forEach(c => {
-                const h = new Date(c.datetime).getHours();
+                const d = new Date(c.datetime);
+                let idx = 0;
+                if (grouping === 'hour') idx = d.getHours();
+                else if (grouping === 'day') idx = d.getDay();
+                else if (grouping === 'month') idx = d.getMonth();
+
                 const bDist = getDist(c, 'BUY');
                 const sDist = getDist(c, 'SELL');
                 
                 if (bDist !== null && bDist >= 0) {
-                    hoursData[h].buy.push(bDist);
+                    groupsData[idx].buy.push(bDist);
                     globalBuy.push(bDist);
                 }
                 if (sDist !== null && sDist >= 0) {
-                    hoursData[h].sell.push(sDist);
+                    groupsData[idx].sell.push(sDist);
                     globalSell.push(sDist);
                 }
             });
@@ -694,10 +713,10 @@
 
             let posStatsSource, negStatsSource, contextLabel;
 
-            if (specificHour !== null) {
-                posStatsSource = getExtendedStats(hoursData[specificHour].buy);
-                negStatsSource = getExtendedStats(hoursData[specificHour].sell);
-                contextLabel = `${specificHour.toString().padStart(2, '0')}:00h`;
+            if (specificHour !== null && specificHour >= 0 && specificHour < numGroups) {
+                posStatsSource = getExtendedStats(groupsData[specificHour].buy);
+                negStatsSource = getExtendedStats(groupsData[specificHour].sell);
+                contextLabel = groupLabels[specificHour];
             } else {
                 posStatsSource = getExtendedStats(globalBuy);
                 negStatsSource = getExtendedStats(globalSell);
@@ -761,16 +780,16 @@
                 </div>
             `;
 
-            // Horas - Nested Quartiles (basados en la base estadística seleccionada)
-            const buyBaseStats = hoursData.map(h => getExtendedStats(h.buy)[statType]);
-            const sellBaseStats = hoursData.map(h => getExtendedStats(h.sell)[statType]);
+            // Heatmap - Nested Quartiles (basados en la base estadística seleccionada)
+            const buyBaseStats = groupsData.map(g => getExtendedStats(g.buy)[statType]);
+            const sellBaseStats = groupsData.map(g => getExtendedStats(g.sell)[statType]);
             const globalBuyBaseQuartiles = MathUtils.quartiles(buyBaseStats);
             const globalSellBaseQuartiles = MathUtils.quartiles(sellBaseStats);
 
             const buildHoursHtml = (type) => {
                 let html = '';
-                for (let h = 0; h < 24; h++) {
-                    const qStats = type === 'BUY' ? getExtendedStats(hoursData[h].buy) : getExtendedStats(hoursData[h].sell);
+                for (let i = 0; i < numGroups; i++) {
+                    const qStats = type === 'BUY' ? getExtendedStats(groupsData[i].buy) : getExtendedStats(groupsData[i].sell);
                     const val = qStats[statType];
                     const gStats = type === 'BUY' ? globalBuyBaseQuartiles : globalSellBaseQuartiles;
                     
@@ -787,10 +806,10 @@
                         else bgColor = 'bg-red-950/50 text-red-500/50 border-red-900/30';
                     }
 
-                    let selectedStyles = specificHour === h ? 'ring-2 ring-white scale-110 z-10' : '';
+                    let selectedStyles = specificHour === i ? 'ring-2 ring-white scale-110 z-10' : '';
                     
-                    html += `<div onclick="renderSplitView(${h})" class="flex-1 min-w-[36px] py-2 text-center rounded border text-xs font-mono font-bold transition-transform hover:scale-110 hover:z-10 cursor-pointer ${bgColor} ${selectedStyles}" title="Clic para proyectar esta hora (${statNames[statType]}: ${val.toFixed(1)} pips)">
-                        ${h}h
+                    html += `<div onclick="renderSplitView(${i})" class="flex-1 min-w-[36px] py-2 text-center rounded border text-xs font-mono font-bold transition-transform hover:scale-110 hover:z-10 cursor-pointer ${bgColor} ${selectedStyles}" title="Clic para proyectar este grupo (${statNames[statType]}: ${val.toFixed(1)} pips)">
+                        ${groupLabels[i]}
                     </div>`;
                 }
                 return html;
@@ -1243,6 +1262,7 @@
         document.getElementById('btn-calc-split')?.addEventListener('click', () => renderSplitView(null));
         document.getElementById('split-metric')?.addEventListener('change', () => renderSplitView(null));
         document.getElementById('split-stat')?.addEventListener('change', () => renderSplitView(null));
+        document.getElementById('split-group')?.addEventListener('change', () => renderSplitView(null));
 
         // Toggle de modo de calculadora
         document.getElementById('calc-mode-sl-to-lots').addEventListener('click', () => {

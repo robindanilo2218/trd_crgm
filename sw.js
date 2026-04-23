@@ -1,13 +1,14 @@
-const CACHE_NAME = 'tradestats-v5';
+const CACHE_NAME = 'tradestats-v6';
 
 const urlsToCache = [
     './',
     './index.html',
     './manifest.json',
+    './icon.svg',
     './app.js',
     './style.css',
-    './tailwind.config.js?v=5',
-    './tailwindcss.js?v=5'
+    './tailwind.config.js?v=6',
+    './tailwindcss.js?v=6'
 ];
 
 self.addEventListener('install', event => {

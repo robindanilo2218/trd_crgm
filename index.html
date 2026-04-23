@@ -10,8 +10,8 @@
     <meta name="theme-color" content="#1e293b">
 
     <!-- Tailwind CSS -->
-    <script src="tailwind.config.js?v=5"></script>
-    <script src="tailwindcss.js?v=5"></script>
+    <script src="tailwind.config.js?v=6"></script>
+    <script src="tailwindcss.js?v=6"></script>
     <link rel="stylesheet" href="style.css">
 </head>
 
@@ -590,6 +590,14 @@
                             <option value="avg">Promedio</option>
                             <option value="q3" selected>Q3 (Estándar)</option>
                             <option value="max">Max Extremo</option>
+                        </select>
+
+                        <label for="split-group" class="text-slate-400 text-sm font-medium ml-2">Agrupar por:</label>
+                        <select id="split-group"
+                            class="bg-slate-900 border border-slate-600 rounded px-2 py-2 text-white text-sm outline-none focus:border-blue-500">
+                            <option value="hour">Hora del Día</option>
+                            <option value="day">Día de la Semana</option>
+                            <option value="month">Mes del Año</option>
                         </select>
 
                         <button id="btn-calc-split"
