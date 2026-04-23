@@ -667,22 +667,35 @@
 
     <!-- Widget Flotante de Reloj -->
     <div id="floating-clock"
-        class="fixed bottom-4 right-4 bg-slate-800/95 border border-slate-700 backdrop-blur shadow-[0_0_20px_rgba(0,0,0,0.5)] rounded-xl p-4 flex items-center gap-4 z-50 transition-all hover:bg-slate-700 hover:scale-105 cursor-pointer">
+        class="fixed bottom-4 right-4 bg-slate-800/60 md:bg-slate-800/95 border border-slate-700/50 md:border-slate-700 backdrop-blur-md shadow-lg rounded-full md:rounded-xl p-2 md:p-4 flex items-center gap-2 md:gap-4 z-50 transition-all duration-300 cursor-pointer overflow-hidden max-w-[calc(100vw-2rem)] hover:bg-slate-700/80 md:hover:bg-slate-700 md:hover:scale-105">
+        
+        <!-- Icono siempre visible -->
         <div
-            class="w-10 h-10 bg-blue-600/20 rounded-full flex items-center justify-center border border-blue-500/30 shrink-0">
-            <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            class="w-8 h-8 md:w-10 md:h-10 bg-blue-600/20 rounded-full flex items-center justify-center border border-blue-500/30 shrink-0">
+            <svg class="w-4 h-4 md:w-5 md:h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                     d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
             </svg>
         </div>
-        <div class="flex flex-col border-r border-slate-600/50 pr-4">
-            <div class="text-[10px] text-slate-400 font-mono tracking-wider mb-0.5">HORA TRADING (MT5)</div>
-            <div id="clock-mt5-time" class="text-white font-mono font-bold text-xl leading-none">--:--:--</div>
-            <div id="clock-local-time" class="text-[9px] text-slate-500 font-mono mt-1">Local: --/--/-- --:--</div>
+        
+        <!-- Vista minimalista en móvil (Visible por defecto, oculto en md o cuando está expandido) -->
+        <div id="clock-mini" class="md:hidden pr-3 font-mono font-bold text-[11px] flex items-center gap-2 text-slate-300">
+            <span id="mini-mt5" class="opacity-80">--:--</span>
+            <span class="opacity-40">|</span>
+            <span id="mini-left" class="text-blue-400">--:--</span>
         </div>
-        <div class="flex flex-col pl-2 min-w-[80px]">
-            <div class="text-[10px] text-slate-400 font-mono tracking-wider mb-0.5 text-center">FIN DE VELA</div>
-            <div id="clock-time-left" class="text-blue-400 font-mono font-bold text-xl leading-none text-center">--:--
+
+        <!-- Contenido detallado (Oculto en móvil por defecto, visible en md) -->
+        <div id="clock-details" class="flex items-center gap-3 md:gap-4 hidden md:flex opacity-0 md:opacity-100 transition-opacity duration-300 pr-2">
+            <div class="flex flex-col border-r border-slate-600/50 pr-3 md:pr-4">
+                <div class="text-[9px] md:text-[10px] text-slate-400 font-mono tracking-wider mb-0.5 whitespace-nowrap">HORA TRADING (MT5)</div>
+                <div id="clock-mt5-time" class="text-white font-mono font-bold text-lg md:text-xl leading-none">--:--:--</div>
+                <div id="clock-local-time" class="text-[8px] md:text-[9px] text-slate-500 font-mono mt-1 whitespace-nowrap">Local: --/--/-- --:--</div>
+            </div>
+            <div class="flex flex-col pl-1 md:pl-2 min-w-[60px] md:min-w-[80px]">
+                <div class="text-[9px] md:text-[10px] text-slate-400 font-mono tracking-wider mb-0.5 text-center whitespace-nowrap">FIN DE VELA</div>
+                <div id="clock-time-left" class="text-blue-400 font-mono font-bold text-lg md:text-xl leading-none text-center">--:--
+                </div>
             </div>
         </div>
     </div>

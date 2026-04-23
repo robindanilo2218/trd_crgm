@@ -1311,6 +1311,9 @@
             const mt5El = document.getElementById('clock-mt5-time');
             const localEl = document.getElementById('clock-local-time');
             const leftEl = document.getElementById('clock-time-left');
+            const miniMt5El = document.getElementById('mini-mt5');
+            const miniLeftEl = document.getElementById('mini-left');
+            
             if(!mt5El || !localEl || !leftEl) return;
 
             const updateClock = () => {
@@ -1361,17 +1364,34 @@
                     const h = Math.floor(timeLeftMs / 3600000);
 
                     if (h > 0) {
-                        leftEl.textContent = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+                        const timeStr = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+                        leftEl.textContent = timeStr;
+                        if(miniLeftEl) miniLeftEl.textContent = timeStr;
                     } else {
-                        leftEl.textContent = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+                        const timeStr = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+                        leftEl.textContent = timeStr;
+                        if(miniLeftEl) miniLeftEl.textContent = timeStr;
                     }
                     
                     if (timeLeftMs <= 60000) {
                         leftEl.classList.remove('text-blue-400');
                         leftEl.classList.add('text-red-400', 'animate-pulse');
+                        if(miniLeftEl) {
+                            miniLeftEl.classList.remove('text-blue-400');
+                            miniLeftEl.classList.add('text-red-400', 'animate-pulse');
+                        }
                     } else {
                         leftEl.classList.remove('text-red-400', 'animate-pulse');
                         leftEl.classList.add('text-blue-400');
+                        if(miniLeftEl) {
+                            miniLeftEl.classList.remove('text-red-400', 'animate-pulse');
+                            miniLeftEl.classList.add('text-blue-400');
+                        }
+                    }
+
+                    if(miniMt5El) {
+                        const nowMt5 = mt5TimeStr.split(':').slice(0, 2).join(':');
+                        miniMt5El.textContent = nowMt5;
                     }
                 } catch (e) {
                     console.error("Error en reloj:", e);
@@ -1380,6 +1400,48 @@
 
             updateClock();
             setInterval(updateClock, 1000);
+
+            // Funcionalidad de expansión en móvil
+            const floatingClock = document.getElementById('floating-clock');
+            const clockDetails = document.getElementById('clock-details');
+            const clockMini = document.getElementById('clock-mini');
+            
+            if (floatingClock && clockDetails && clockMini) {
+                floatingClock.addEventListener('click', function() {
+                    if (window.innerWidth >= 768) return; // Solo en móvil
+
+                    if (clockDetails.classList.contains('hidden')) {
+                        // Expandir
+                        clockDetails.classList.remove('hidden');
+                        setTimeout(() => clockDetails.classList.remove('opacity-0'), 50);
+                        clockMini.classList.add('hidden');
+                        this.classList.remove('bg-slate-800/60', 'border-slate-700/50', 'rounded-full');
+                        this.classList.add('bg-slate-800/95', 'border-slate-700', 'rounded-xl');
+                        
+                        // Auto-colapsar
+                        clearTimeout(this.collapseTimer);
+                        this.collapseTimer = setTimeout(() => {
+                            clockDetails.classList.add('opacity-0');
+                            setTimeout(() => {
+                                clockDetails.classList.add('hidden');
+                                clockMini.classList.remove('hidden');
+                                this.classList.remove('bg-slate-800/95', 'border-slate-700', 'rounded-xl');
+                                this.classList.add('bg-slate-800/60', 'border-slate-700/50', 'rounded-full');
+                            }, 300);
+                        }, 4000);
+                    } else {
+                        // Colapsar manual
+                        clearTimeout(this.collapseTimer);
+                        clockDetails.classList.add('opacity-0');
+                        setTimeout(() => {
+                            clockDetails.classList.add('hidden');
+                            clockMini.classList.remove('hidden');
+                            this.classList.remove('bg-slate-800/95', 'border-slate-700', 'rounded-xl');
+                            this.classList.add('bg-slate-800/60', 'border-slate-700/50', 'rounded-full');
+                        }, 300);
+                    }
+                });
+            }
         }
 
         // INICIALIZACIÓN
