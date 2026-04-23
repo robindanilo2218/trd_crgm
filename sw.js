@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tradestats-v3';
+const CACHE_NAME = 'tradestats-v4';
 
 self.addEventListener('message', event => {
     if (event.data && event.data.action === 'skipWaiting') {
