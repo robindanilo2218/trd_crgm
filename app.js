@@ -1194,6 +1194,22 @@
             if (e.target.files[0]) parseCSV(e.target.files[0]);
         });
 
+        document.getElementById('btn-load-default')?.addEventListener('click', async () => {
+            try {
+                showLoader("Descargando archivo del servidor...");
+                const response = await fetch('EURUSD_M1_202412122350_202604221916.csv');
+                if (!response.ok) throw new Error("No se pudo descargar el archivo del servidor.");
+                const blob = await response.blob();
+                const file = new File([blob], 'EURUSD_M1_202412122350_202604221916.csv', { type: 'text/csv' });
+                
+                hideLoader();
+                parseCSV(file);
+            } catch (err) {
+                hideLoader();
+                alert(err.message);
+            }
+        });
+
         document.getElementById('btn-recalc-ind').addEventListener('click', renderAll);
 
         // Eventos de Calculadora de Riesgo — base
