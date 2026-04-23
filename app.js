@@ -71,6 +71,27 @@
         };
 
         // ==========================================
+        // FULLSCREEN TOGGLE
+        // ==========================================
+        window.toggleFullScreen = function() {
+            const btn = document.getElementById('btn-fullscreen');
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(() => {});
+                if (btn) btn.innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 9V4H4m0 0v5m0-5l5 5M15 9V4h5m0 0v5m0-5l-5 5M9 15H4m0 0v5m0-5l5 5m6-5h5m0 0v5m0-5l-5 5"></path></svg>`;
+            } else {
+                document.exitFullscreen();
+                if (btn) btn.innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path></svg>`;
+            }
+        };
+        document.addEventListener('fullscreenchange', () => {
+            const btn = document.getElementById('btn-fullscreen');
+            if (!btn) return;
+            if (!document.fullscreenElement) {
+                btn.innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path></svg>`;
+            }
+        });
+
+        // ==========================================
         // 3. ESTADO DE LA APP Y MATEMÁTICAS
         // ==========================================
         const State = {

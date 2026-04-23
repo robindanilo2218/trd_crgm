@@ -36,8 +36,13 @@
                 <h1
                     class="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-indigo-400">
                     TradeStats</h1>
-                <span id="app-version-label"
-                    class="text-xs font-mono bg-slate-800 text-slate-400 px-2 py-0.5 rounded border border-slate-700 shadow-inner cursor-pointer select-none">v1.2.0</span>
+                <div class="flex items-center gap-2">
+                    <button id="btn-fullscreen" class="text-slate-400 hover:text-white transition-colors" onclick="toggleFullScreen()" title="Pantalla Completa">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path></svg>
+                    </button>
+                    <span id="app-version-label"
+                        class="text-xs font-mono bg-slate-800 text-slate-400 px-2 py-0.5 rounded border border-slate-700 shadow-inner cursor-pointer select-none">v1.2.0</span>
+                </div>
             </div>
             <p class="text-xs text-slate-400 mt-1">Análisis Cuantitativo PWA</p>
             <button id="btn-update-app"
