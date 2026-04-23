@@ -532,7 +532,9 @@
             document.getElementById('pagination-info').innerText = `Mostrando ${limit} de ${data.length} filas. Usa los filtros y estadísticas para analizar la totalidad.`;
 
             let bodyHtml = '';
-            for (let i = 0; i < limit; i++) {
+            const startIndex = data.length - 1;
+            const endIndex = Math.max(0, data.length - limit);
+            for (let i = startIndex; i >= endIndex; i--) {
                 let rowHtml = `<tr class="hover:bg-slate-700/30 transition-colors">`;
                 keys.forEach(k => {
                     let val = data[i][k];

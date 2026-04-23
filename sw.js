@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tradestats-v8';
+const CACHE_NAME = 'tradestats-v9';
 
 const urlsToCache = [
     './',
