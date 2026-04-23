@@ -789,8 +789,9 @@
 
                     let selectedStyles = specificHour === h ? 'ring-2 ring-white scale-110 z-10' : '';
                     
-                    html += `<div onclick="renderSplitView(${h})" class="flex-1 min-w-[36px] py-2 text-center rounded border text-xs font-mono font-bold transition-transform hover:scale-110 hover:z-10 cursor-pointer ${bgColor} ${selectedStyles}" title="Clic para proyectar esta hora (${statNames[statType]}: ${val.toFixed(1)} pips)">
-                        ${h}h
+                    html += `<div onclick="renderSplitView(${h})" class="flex-1 min-w-[40px] py-1.5 text-center rounded border transition-transform hover:scale-110 hover:z-10 cursor-pointer flex flex-col items-center justify-center ${bgColor} ${selectedStyles}" title="Clic para proyectar esta hora (${statNames[statType]}: ${val.toFixed(1)} pips)">
+                        <span class="text-[11px] font-mono font-bold leading-none">${h}h</span>
+                        <span class="text-[9px] font-mono opacity-90 leading-none mt-1">${val.toFixed(1)}</span>
                     </div>`;
                 }
                 return html;
@@ -1272,13 +1273,26 @@
         // 7. RELOJ DE TRADING
         // ==========================================
         function initTradingClock() {
-            const timeEl = document.getElementById('clock-current-time');
+            const mt5El = document.getElementById('clock-mt5-time');
+            const localEl = document.getElementById('clock-local-time');
             const leftEl = document.getElementById('clock-time-left');
-            if(!timeEl || !leftEl) return;
+            if(!mt5El || !localEl || !leftEl) return;
 
             setInterval(() => {
                 const now = new Date();
-                timeEl.textContent = now.toLocaleTimeString('es-ES', { hour12: false });
+                
+                // Hora MT5 (generalmente EET/EEST, Eastern European Time)
+                let mt5TimeStr = '--:--:--';
+                try {
+                    mt5TimeStr = now.toLocaleTimeString('es-ES', { timeZone: 'Europe/Athens', hour12: false });
+                } catch(e) {
+                    mt5TimeStr = now.toLocaleTimeString('es-ES', { hour12: false });
+                }
+                mt5El.textContent = mt5TimeStr;
+                
+                const localDateStr = now.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: '2-digit' });
+                const localTimeStr = now.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+                localEl.textContent = `Local: ${localDateStr} ${localTimeStr}`;
 
                 let tfMs = 3600000; // Por defecto 1H
                 if (State.processedData && State.processedData.length >= 2) {

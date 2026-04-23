@@ -28,12 +28,15 @@
     <aside class="w-64 bg-slate-850 border-r border-slate-800 flex flex-col hidden md:flex z-20 shadow-2xl">
         <div class="p-6 border-b border-slate-800">
             <div class="flex justify-between items-center">
-                <h1 class="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-indigo-400">
+                <h1
+                    class="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-indigo-400">
                     TradeStats</h1>
-                <span id="app-version-label" class="text-xs font-mono bg-slate-800 text-slate-400 px-2 py-0.5 rounded border border-slate-700 shadow-inner cursor-pointer select-none">v1.2.0</span>
+                <span id="app-version-label"
+                    class="text-xs font-mono bg-slate-800 text-slate-400 px-2 py-0.5 rounded border border-slate-700 shadow-inner cursor-pointer select-none">v1.2.0</span>
             </div>
             <p class="text-xs text-slate-400 mt-1">Análisis Cuantitativo PWA</p>
-            <button id="btn-update-app" class="hidden mt-3 w-full bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-2 px-4 rounded shadow-lg transition-all animate-pulse">
+            <button id="btn-update-app"
+                class="hidden mt-3 w-full bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-2 px-4 rounded shadow-lg transition-all animate-pulse">
                 ✨ ¡Nueva versión disponible! Actualizar
             </button>
         </div>
@@ -100,15 +103,20 @@
 
             <!-- Date Range Filter & Availability Container -->
             <div class="flex flex-col items-end gap-1 w-full sm:w-auto">
-                <div class="flex items-center gap-2 text-xs bg-slate-900 p-1.5 rounded-lg border border-slate-700 w-full sm:w-auto overflow-x-auto">
+                <div
+                    class="flex items-center gap-2 text-xs bg-slate-900 p-1.5 rounded-lg border border-slate-700 w-full sm:w-auto overflow-x-auto">
                     <span class="text-slate-400 px-1 hidden lg:inline">Rango:</span>
-                    <input type="date" id="date-start" class="bg-slate-800 border border-slate-600 rounded text-slate-300 px-2 py-1 outline-none focus:border-blue-500">
+                    <input type="date" id="date-start"
+                        class="bg-slate-800 border border-slate-600 rounded text-slate-300 px-2 py-1 outline-none focus:border-blue-500">
                     <span class="text-slate-500">-</span>
-                    <input type="date" id="date-end" class="bg-slate-800 border border-slate-600 rounded text-slate-300 px-2 py-1 outline-none focus:border-blue-500">
-                    <button id="btn-date-clear" class="text-slate-400 hover:text-red-400 px-2 transition-colors" title="Limpiar filtro">✕</button>
+                    <input type="date" id="date-end"
+                        class="bg-slate-800 border border-slate-600 rounded text-slate-300 px-2 py-1 outline-none focus:border-blue-500">
+                    <button id="btn-date-clear" class="text-slate-400 hover:text-red-400 px-2 transition-colors"
+                        title="Limpiar filtro">✕</button>
                 </div>
                 <div id="data-availability" class="text-[10px] text-slate-500 hidden">
-                    Datos: <span id="data-avail-start" class="font-medium text-slate-400">...</span> al <span id="data-avail-end" class="font-medium text-slate-400">...</span>
+                    Datos: <span id="data-avail-start" class="font-medium text-slate-400">...</span> al <span
+                        id="data-avail-end" class="font-medium text-slate-400">...</span>
                 </div>
             </div>
 
@@ -282,11 +290,13 @@
                 <div class="bg-slate-800 rounded-xl border border-slate-700 p-6">
                     <h3 class="text-xl font-bold text-white mb-2">Calculadora de Riesgo</h3>
                     <p class="text-sm text-slate-400 mb-5">
-                        Fórmula base: <span class="font-mono text-blue-300">Pérdida = Lotes × SL (pips) × Valor/pip</span>
+                        Fórmula base: <span class="font-mono text-blue-300">Pérdida = Lotes × SL (pips) ×
+                            Valor/pip</span>
                     </p>
 
                     <!-- Parámetros base -->
-                    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-5 p-4 bg-slate-900 rounded-xl border border-slate-700">
+                    <div
+                        class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-5 p-4 bg-slate-900 rounded-xl border border-slate-700">
                         <div>
                             <label class="block text-xs text-slate-400 mb-1">💰 Capital ($)</label>
                             <input type="number" id="risk-balance" value="1000"
@@ -299,17 +309,20 @@
                         </div>
                         <div>
                             <label class="block text-xs text-slate-400 mb-1">💲 Valor Pip / Lote ($)
-                                <span class="text-slate-600 ml-1 cursor-help" title="EURUSD ≈ $10. Ajusta según broker.">ⓘ</span>
+                                <span class="text-slate-600 ml-1 cursor-help"
+                                    title="EURUSD ≈ $10. Ajusta según broker.">ⓘ</span>
                             </label>
                             <input type="number" id="risk-pip-value" value="10" step="0.01" min="0.001"
                                 class="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-blue-500 outline-none transition-colors">
                         </div>
                         <div>
                             <label class="block text-xs text-slate-400 mb-1">⚖️ Apalancamiento
-                                <span class="text-slate-600 ml-1 cursor-help" title="Ejemplo: 100 para 1:100. Se usa para estimar el margen requerido asumiendo 1 Lote = 100k unid.">ⓘ</span>
+                                <span class="text-slate-600 ml-1 cursor-help"
+                                    title="Ejemplo: 100 para 1:100. Se usa para estimar el margen requerido asumiendo 1 Lote = 100k unid.">ⓘ</span>
                             </label>
                             <div class="flex items-center">
-                                <span class="bg-slate-800 border border-slate-600 border-r-0 rounded-l-lg px-3 py-2 text-slate-400 text-sm">1:</span>
+                                <span
+                                    class="bg-slate-800 border border-slate-600 border-r-0 rounded-l-lg px-3 py-2 text-slate-400 text-sm">1:</span>
                                 <input type="number" id="risk-leverage" value="100" step="1" min="1"
                                     class="w-full bg-slate-800 border border-slate-600 rounded-r-lg px-3 py-2 text-white text-sm focus:border-blue-500 outline-none transition-colors">
                             </div>
@@ -317,7 +330,8 @@
                     </div>
 
                     <!-- Dinero en riesgo -->
-                    <div class="mb-5 p-4 bg-red-950/40 border border-red-800/50 rounded-xl flex items-center justify-between">
+                    <div
+                        class="mb-5 p-4 bg-red-950/40 border border-red-800/50 rounded-xl flex items-center justify-between">
                         <div>
                             <div class="text-xs text-slate-400 mb-1">Dinero en Riesgo</div>
                             <div class="text-3xl font-bold text-red-400 font-mono" id="risk-money">$10.00</div>
@@ -368,7 +382,8 @@
 
                                 <!-- Slider de vela -->
                                 <div id="slider-container" class="mb-4">
-                                    <label class="block text-sm text-slate-400 mb-1">Seleccionar Vela Histórica (Índice)</label>
+                                    <label class="block text-sm text-slate-400 mb-1">Seleccionar Vela Histórica
+                                        (Índice)</label>
                                     <input type="range" id="risk-candle-idx" min="0" max="0" value="0"
                                         class="w-full accent-blue-500">
                                     <div class="text-xs text-slate-500 flex justify-between mt-1">
@@ -378,7 +393,8 @@
                                 </div>
 
                                 <div>
-                                    <label class="block text-sm text-slate-400 mb-1">Stop Loss (<span id="sl-mode-label">Pips</span>)</label>
+                                    <label class="block text-sm text-slate-400 mb-1">Stop Loss (<span
+                                            id="sl-mode-label">Pips</span>)</label>
                                     <input type="number" id="risk-sl" value="0" step="0.1"
                                         class="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-2 text-blue-400 font-mono text-lg focus:border-blue-500 outline-none transition-colors">
                                     <p class="text-xs text-slate-500 mt-1" id="sl-pips-equiv"></p>
@@ -390,12 +406,14 @@
                                 <label class="block text-sm text-slate-400 mb-1">Lotaje a Operar</label>
                                 <input type="number" id="risk-lots-input" value="1.00" step="0.01" min="0.001"
                                     class="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-2 text-green-400 font-mono text-lg focus:border-blue-500 outline-none transition-colors">
-                                <p class="text-xs text-slate-500 mt-1">Ingresa el lotaje deseado → se calculará cuántos pips de SL puedes permitirte.</p>
+                                <p class="text-xs text-slate-500 mt-1">Ingresa el lotaje deseado → se calculará cuántos
+                                    pips de SL puedes permitirte.</p>
                             </div>
                         </div>
 
                         <!-- Columna derecha: resultado -->
-                        <div class="bg-slate-900 rounded-xl p-6 border border-slate-700 flex flex-col justify-center gap-5">
+                        <div
+                            class="bg-slate-900 rounded-xl p-6 border border-slate-700 flex flex-col justify-center gap-5">
 
                             <!-- RESULTADO A: Lotaje -->
                             <div id="result-lots-panel" class="text-center">
@@ -407,7 +425,8 @@
 
                             <!-- RESULTADO B: SL máximo -->
                             <div id="result-sl-panel" class="text-center hidden">
-                                <div class="text-xs text-slate-500 uppercase tracking-wider mb-1">SL Máximo Permitido</div>
+                                <div class="text-xs text-slate-500 uppercase tracking-wider mb-1">SL Máximo Permitido
+                                </div>
                                 <div class="text-5xl font-black text-blue-400 drop-shadow-[0_0_20px_rgba(96,165,250,0.3)] font-mono"
                                     id="risk-max-sl">0.0</div>
                                 <div class="text-sm text-slate-500 mt-1" id="risk-max-sl-unit">pips</div>
@@ -417,27 +436,34 @@
                             <!-- Proyección de Take Profit / Ratio RR -->
                             <div class="border-t border-slate-700 pt-5">
                                 <h4 class="text-slate-300 font-semibold mb-3 text-sm flex items-center gap-2">
-                                    <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path></svg>
+                                    <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor"
+                                        viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path>
+                                    </svg>
                                     Proyección de Beneficio (Take Profit)
                                 </h4>
                                 <div class="grid grid-cols-2 gap-4 mb-4">
                                     <div>
                                         <label class="block text-xs text-slate-400 mb-1">Ratio (R:R)</label>
                                         <div class="flex items-center">
-                                            <span class="bg-slate-800 border border-slate-600 border-r-0 rounded-l-lg px-2 py-1.5 text-slate-400 text-sm">1:</span>
+                                            <span
+                                                class="bg-slate-800 border border-slate-600 border-r-0 rounded-l-lg px-2 py-1.5 text-slate-400 text-sm">1:</span>
                                             <input type="number" id="risk-rr-input" value="2" step="0.1" min="0.1"
                                                 class="w-full bg-slate-900 border border-slate-600 rounded-r-lg px-2 py-1.5 text-emerald-400 font-mono text-sm focus:border-emerald-500 outline-none transition-colors">
                                         </div>
                                     </div>
                                     <div>
-                                        <label class="block text-xs text-slate-400 mb-1">Take Profit (<span id="tp-mode-label">Pips</span>)</label>
+                                        <label class="block text-xs text-slate-400 mb-1">Take Profit (<span
+                                                id="tp-mode-label">Pips</span>)</label>
                                         <input type="number" id="risk-tp-input" value="0" step="0.1" min="0.1"
                                             class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-1.5 text-emerald-400 font-mono text-sm focus:border-emerald-500 outline-none transition-colors">
                                     </div>
                                 </div>
                                 <div class="bg-emerald-950/30 border border-emerald-800/30 rounded-lg p-3 text-center">
                                     <div class="text-xs text-slate-500 mb-1">Beneficio Proyectado ($)</div>
-                                    <div class="text-2xl font-bold text-emerald-400 font-mono" id="risk-profit-money">$0.00</div>
+                                    <div class="text-2xl font-bold text-emerald-400 font-mono" id="risk-profit-money">
+                                        $0.00</div>
                                 </div>
                             </div>
 
@@ -455,7 +481,8 @@
                                     <span>% de pérdida sobre capital:</span>
                                     <span class="font-mono" id="verify-pct">0.00%</span>
                                 </div>
-                                <div class="text-xs font-mono bg-slate-800 rounded p-2 text-slate-500 mt-2 leading-relaxed" id="verify-formula">
+                                <div class="text-xs font-mono bg-slate-800 rounded p-2 text-slate-500 mt-2 leading-relaxed"
+                                    id="verify-formula">
                                     Lotes × SL × Valor/pip = Pérdida
                                 </div>
                             </div>
@@ -472,7 +499,8 @@
                         Ejecuta operaciones utilizando los parámetros exactos calculados en la Calculadora de Riesgo.
                     </p>
 
-                    <div class="bg-slate-900 border border-slate-700 rounded-xl p-6 mb-6 flex flex-col lg:flex-row gap-6 items-center justify-between">
+                    <div
+                        class="bg-slate-900 border border-slate-700 rounded-xl p-6 mb-6 flex flex-col lg:flex-row gap-6 items-center justify-between">
                         <div class="grid grid-cols-2 lg:grid-cols-5 gap-4 w-full">
                             <div>
                                 <div class="text-xs text-slate-400 uppercase tracking-wider mb-1">Activo</div>
@@ -484,11 +512,13 @@
                             </div>
                             <div>
                                 <div class="text-xs text-slate-400 uppercase tracking-wider mb-1">Stop Loss</div>
-                                <div class="text-xl text-red-400 font-mono" id="bot-display-sl">0.0 <span class="text-xs text-slate-500">pips</span></div>
+                                <div class="text-xl text-red-400 font-mono" id="bot-display-sl">0.0 <span
+                                        class="text-xs text-slate-500">pips</span></div>
                             </div>
                             <div>
                                 <div class="text-xs text-slate-400 uppercase tracking-wider mb-1">Take Profit</div>
-                                <div class="text-xl text-emerald-400 font-mono" id="bot-display-tp">0.0 <span class="text-xs text-slate-500">pips</span></div>
+                                <div class="text-xl text-emerald-400 font-mono" id="bot-display-tp">0.0 <span
+                                        class="text-xs text-slate-500">pips</span></div>
                             </div>
                             <div>
                                 <div class="text-xs text-slate-400 uppercase tracking-wider mb-1">Precio Ejecución</div>
@@ -497,20 +527,30 @@
                             </div>
                         </div>
                         <div class="flex flex-col gap-2 w-full lg:w-auto shrink-0">
-                            <button id="btnEjecutarBotBuy" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 px-6 rounded-lg shadow-lg transition-colors whitespace-nowrap flex items-center justify-center gap-2">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"></path></svg>
+                            <button id="btnEjecutarBotBuy"
+                                class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 px-6 rounded-lg shadow-lg transition-colors whitespace-nowrap flex items-center justify-center gap-2">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M5 10l7-7m0 0l7 7m-7-7v18"></path>
+                                </svg>
                                 COMPRA (Buy)
                             </button>
-                            <button id="btnEjecutarBotSell" class="bg-red-600 hover:bg-red-500 text-white font-bold py-3 px-6 rounded-lg shadow-lg transition-colors whitespace-nowrap flex items-center justify-center gap-2">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"></path></svg>
+                            <button id="btnEjecutarBotSell"
+                                class="bg-red-600 hover:bg-red-500 text-white font-bold py-3 px-6 rounded-lg shadow-lg transition-colors whitespace-nowrap flex items-center justify-center gap-2">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M19 14l-7 7m0 0l-7-7m7 7V3"></path>
+                                </svg>
                                 VENTA (Sell)
                             </button>
                         </div>
                     </div>
 
                     <!-- Terminal -->
-                    <div class="bg-black/90 rounded-xl border border-slate-700 p-4 font-mono text-sm h-72 overflow-y-auto" id="bot-consola">
-                        <div class="text-slate-500 mb-3">TradeStats Algo Engine v1.0. Conectando... Listo para recibir órdenes.</div>
+                    <div class="bg-black/90 rounded-xl border border-slate-700 p-4 font-mono text-sm h-72 overflow-y-auto"
+                        id="bot-consola">
+                        <div class="text-slate-500 mb-3">TradeStats Algo Engine v1.0. Conectando... Listo para recibir
+                            órdenes.</div>
                     </div>
                 </div>
             </div>
@@ -519,13 +559,16 @@
             <div id="tab-split" class="tab-content hidden">
                 <div class="flex flex-col h-full gap-4 relative">
                     <!-- Control Bar -->
-                    <div class="bg-slate-800 border border-slate-700 rounded-xl p-4 flex flex-wrap items-center justify-center gap-4 z-10 shrink-0">
-                        <label for="split-exec-price" class="text-slate-400 text-sm font-medium">Precio Base:</label>
+                    <div
+                        class="bg-slate-800 border border-slate-700 rounded-xl p-4 flex flex-wrap items-center justify-center gap-4 z-10 shrink-0">
+                        <label for="split-exec-price" class="text-slate-400 text-sm font-medium">Precio base o apertura
+                            en la temporalidad selecionada:</label>
                         <input type="number" id="split-exec-price" step="0.00001" placeholder="Ej. 1.08500"
                             class="bg-slate-900 border border-slate-600 rounded px-3 py-2 text-white font-mono w-32 focus:border-blue-500 outline-none transition-colors">
-                        
+
                         <label for="split-metric" class="text-slate-400 text-sm font-medium ml-2">Métrica:</label>
-                        <select id="split-metric" class="bg-slate-900 border border-slate-600 rounded px-2 py-2 text-white text-sm outline-none focus:border-blue-500">
+                        <select id="split-metric"
+                            class="bg-slate-900 border border-slate-600 rounded px-2 py-2 text-white text-sm outline-none focus:border-blue-500">
                             <option value="close">Cierre Neto (Open a Close)</option>
                             <option value="max_excursion">A Favor (Open a High / Low)</option>
                             <option value="drawdown">En Contra / Drawdown</option>
@@ -533,7 +576,8 @@
                         </select>
 
                         <label for="split-stat" class="text-slate-400 text-sm font-medium ml-2">Base Est.:</label>
-                        <select id="split-stat" class="bg-slate-900 border border-slate-600 rounded px-2 py-2 text-white text-sm outline-none focus:border-blue-500">
+                        <select id="split-stat"
+                            class="bg-slate-900 border border-slate-600 rounded px-2 py-2 text-white text-sm outline-none focus:border-blue-500">
                             <option value="q1">Q1 (Conservador)</option>
                             <option value="q2">Q2 (Mediana)</option>
                             <option value="avg">Promedio</option>
@@ -541,8 +585,13 @@
                             <option value="max">Max Extremo</option>
                         </select>
 
-                        <button id="btn-calc-split" class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-4 rounded transition-colors shadow flex items-center gap-2">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                        <button id="btn-calc-split"
+                            class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-4 rounded transition-colors shadow flex items-center gap-2">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15">
+                                </path>
+                            </svg>
                             Calcular Proyección
                         </button>
                     </div>
@@ -550,9 +599,14 @@
                     <!-- Split Container -->
                     <div class="flex flex-col md:flex-row gap-4 flex-1 min-h-0">
                         <!-- Panel Buy -->
-                        <div class="flex-1 bg-gradient-to-b from-emerald-900/20 to-slate-800 border-t-4 border-emerald-500 rounded-xl p-5 overflow-y-auto border border-slate-700">
-                            <h2 class="text-emerald-400 font-bold text-lg uppercase tracking-wider mb-4 flex items-center gap-2">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"></path></svg>
+                        <div
+                            class="flex-1 bg-gradient-to-b from-emerald-900/20 to-slate-800 border-t-4 border-emerald-500 rounded-xl p-5 overflow-y-auto border border-slate-700">
+                            <h2
+                                class="text-emerald-400 font-bold text-lg uppercase tracking-wider mb-4 flex items-center gap-2">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M5 10l7-7m0 0l7 7m-7-7v18"></path>
+                                </svg>
                                 Escenario BUY (Alcista)
                             </h2>
                             <div class="grid grid-cols-1 xl:grid-cols-3 gap-3 mb-6" id="split-buy-stats">
@@ -561,15 +615,21 @@
                                     <strong class="text-xl text-white">-</strong>
                                 </div>
                             </div>
-                            <h3 class="text-sm text-slate-400 mb-3 border-b border-slate-700/50 pb-2">Cuartiles Anidados de Mejores Horas (Análisis Q3)</h3>
+                            <h3 class="text-sm text-slate-400 mb-3 border-b border-slate-700/50 pb-2">Cuartiles Anidados
+                                de Mejores Horas (Análisis Q3)</h3>
                             <div class="flex flex-wrap gap-1 mt-2" id="split-buy-hours">
                             </div>
                         </div>
 
                         <!-- Panel Sell -->
-                        <div class="flex-1 bg-gradient-to-t from-slate-800 to-red-900/20 border-t-4 border-red-500 rounded-xl p-5 overflow-y-auto border border-slate-700">
-                            <h2 class="text-red-400 font-bold text-lg uppercase tracking-wider mb-4 flex items-center gap-2">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"></path></svg>
+                        <div
+                            class="flex-1 bg-gradient-to-t from-slate-800 to-red-900/20 border-t-4 border-red-500 rounded-xl p-5 overflow-y-auto border border-slate-700">
+                            <h2
+                                class="text-red-400 font-bold text-lg uppercase tracking-wider mb-4 flex items-center gap-2">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M19 14l-7 7m0 0l-7-7m7 7V3"></path>
+                                </svg>
                                 Escenario SELL (Bajista)
                             </h2>
                             <div class="grid grid-cols-1 xl:grid-cols-3 gap-3 mb-6" id="split-sell-stats">
@@ -578,7 +638,8 @@
                                     <strong class="text-xl text-white">-</strong>
                                 </div>
                             </div>
-                            <h3 class="text-sm text-slate-400 mb-3 border-b border-slate-700/50 pb-2">Cuartiles Anidados de Mejores Horas (Análisis Q3)</h3>
+                            <h3 class="text-sm text-slate-400 mb-3 border-b border-slate-700/50 pb-2">Cuartiles Anidados
+                                de Mejores Horas (Análisis Q3)</h3>
                             <div class="flex flex-wrap gap-1 mt-2" id="split-sell-hours">
                             </div>
                         </div>
@@ -590,13 +651,24 @@
     </main>
 
     <!-- Widget Flotante de Reloj -->
-    <div id="floating-clock" class="fixed bottom-4 right-4 bg-slate-800/95 border border-slate-700 backdrop-blur shadow-[0_0_20px_rgba(0,0,0,0.5)] rounded-xl p-3 flex items-center gap-3 z-50 transition-all hover:bg-slate-700 hover:scale-105 cursor-pointer">
-        <div class="w-10 h-10 bg-blue-600/20 rounded-full flex items-center justify-center border border-blue-500/30">
-            <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+    <div id="floating-clock"
+        class="fixed bottom-4 right-4 bg-slate-800/95 border border-slate-700 backdrop-blur shadow-[0_0_20px_rgba(0,0,0,0.5)] rounded-xl p-4 flex items-center gap-4 z-50 transition-all hover:bg-slate-700 hover:scale-105 cursor-pointer">
+        <div
+            class="w-10 h-10 bg-blue-600/20 rounded-full flex items-center justify-center border border-blue-500/30 shrink-0">
+            <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
         </div>
-        <div class="pr-2">
-            <div id="clock-current-time" class="text-white font-mono font-bold text-lg leading-tight">--:--:--</div>
-            <div class="text-[10px] text-slate-400 font-mono tracking-wider mt-0.5">Fin de Vela: <span id="clock-time-left" class="text-blue-400 font-bold">--:--</span></div>
+        <div class="flex flex-col border-r border-slate-600/50 pr-4">
+            <div class="text-[10px] text-slate-400 font-mono tracking-wider mb-0.5">HORA TRADING (MT5)</div>
+            <div id="clock-mt5-time" class="text-white font-mono font-bold text-xl leading-none">--:--:--</div>
+            <div id="clock-local-time" class="text-[9px] text-slate-500 font-mono mt-1">Local: --/--/-- --:--</div>
+        </div>
+        <div class="flex flex-col pl-2 min-w-[80px]">
+            <div class="text-[10px] text-slate-400 font-mono tracking-wider mb-0.5 text-center">FIN DE VELA</div>
+            <div id="clock-time-left" class="text-blue-400 font-mono font-bold text-xl leading-none text-center">--:--
+            </div>
         </div>
     </div>
 
