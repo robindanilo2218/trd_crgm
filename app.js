@@ -641,10 +641,10 @@
 
             if (State.calcMode === 'sl-to-lots') {
                 // ── MODO A: SL conocido → calcular lotaje ──────────────────────
-                if (!State.stats || State.processedData.length === 0) return;
+                const strategy = document.getElementById('risk-strategy').value;
+                if (strategy !== 'manual' && (!State.stats || State.processedData.length === 0)) return;
 
                 const idx = parseInt(document.getElementById('risk-candle-idx').value) || 0;
-                const strategy = document.getElementById('risk-strategy').value;
                 document.getElementById('risk-candle-label').innerText = `Vela #${idx}`;
 
                 const slInputRaw = parseFloat(document.getElementById('risk-sl').value) || 1;
