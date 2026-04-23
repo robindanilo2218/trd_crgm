@@ -1278,73 +1278,77 @@
             const leftEl = document.getElementById('clock-time-left');
             if(!mt5El || !localEl || !leftEl) return;
 
-            setInterval(() => {
-                const now = new Date();
-                
-                // Hora MT5 (generalmente EET/EEST, Eastern European Time)
-                let mt5TimeStr = '--:--:--';
+            const updateClock = () => {
                 try {
-                    mt5TimeStr = now.toLocaleTimeString('es-ES', { timeZone: 'Europe/Athens', hour12: false });
-                } catch(e) {
-                    mt5TimeStr = now.toLocaleTimeString('es-ES', { hour12: false });
-                }
-                mt5El.textContent = mt5TimeStr;
-                
-                const localDateStr = now.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: '2-digit' });
-                const localTimeStr = now.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
-                localEl.textContent = `Local: ${localDateStr} ${localTimeStr}`;
-
-                let tfMs = 3600000; // Por defecto 1H
-                if (State.processedData && State.processedData.length >= 2) {
-                    const l = State.processedData.length;
-                    const d1 = new Date(State.processedData[l-1].datetime).getTime();
-                    const d2 = new Date(State.processedData[l-2].datetime).getTime();
-                    const diff = Math.abs(d1 - d2);
-                    if (diff >= 60000 && diff <= 86400000) {
-                        tfMs = diff;
+                    const now = new Date();
+                    
+                    let mt5TimeStr = '--:--:--';
+                    try {
+                        mt5TimeStr = now.toLocaleTimeString('es-ES', { timeZone: 'Europe/Athens', hour12: false });
+                    } catch(e) {
+                        mt5TimeStr = now.toLocaleTimeString('es-ES', { hour12: false });
                     }
-                }
+                    mt5El.textContent = mt5TimeStr;
+                    
+                    const localDateStr = now.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: '2-digit' });
+                    const localTimeStr = now.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                    localEl.textContent = `Local: ${localDateStr} ${localTimeStr}`;
 
-                const nowMs = now.getTime();
-                let nextCandleMs = nowMs;
-                
-                if (State.processedData && State.processedData.length > 0) {
-                    const lastCandleMs = new Date(State.processedData[State.processedData.length-1].datetime).getTime();
-                    // Project grid forward from the last candle time
-                    const intervalsPassed = Math.floor((nowMs - lastCandleMs) / tfMs);
-                    nextCandleMs = lastCandleMs + (intervalsPassed + 1) * tfMs;
-                    if (nowMs < lastCandleMs) {
-                       nextCandleMs = lastCandleMs;
+                    let tfMs = 3600000; // Por defecto 1H
+                    if (State && State.processedData && State.processedData.length >= 2) {
+                        const l = State.processedData.length;
+                        const d1 = new Date(State.processedData[l-1].datetime).getTime();
+                        const d2 = new Date(State.processedData[l-2].datetime).getTime();
+                        const diff = Math.abs(d1 - d2);
+                        if (diff >= 60000 && diff <= 86400000) {
+                            tfMs = diff;
+                        }
                     }
-                } else {
-                    nextCandleMs = nowMs + (tfMs - (nowMs % tfMs));
-                }
-                
-                const timeLeftMs = nextCandleMs - nowMs;
 
-                const s = Math.floor(timeLeftMs / 1000) % 60;
-                const m = Math.floor(timeLeftMs / 60000) % 60;
-                const h = Math.floor(timeLeftMs / 3600000);
+                    const nowMs = now.getTime();
+                    let nextCandleMs = nowMs;
+                    
+                    if (State && State.processedData && State.processedData.length > 0) {
+                        const lastCandleMs = new Date(State.processedData[State.processedData.length-1].datetime).getTime();
+                        const intervalsPassed = Math.floor((nowMs - lastCandleMs) / tfMs);
+                        nextCandleMs = lastCandleMs + (intervalsPassed + 1) * tfMs;
+                        if (nowMs < lastCandleMs) {
+                           nextCandleMs = lastCandleMs;
+                        }
+                    } else {
+                        nextCandleMs = nowMs + (tfMs - (nowMs % tfMs));
+                    }
+                    
+                    const timeLeftMs = Math.max(0, nextCandleMs - nowMs);
 
-                if (h > 0) {
-                    leftEl.textContent = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-                } else {
-                    leftEl.textContent = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-                }
-                
-                if (timeLeftMs <= 60000) {
-                    leftEl.classList.remove('text-blue-400');
-                    leftEl.classList.add('text-red-400', 'animate-pulse');
-                } else {
-                    leftEl.classList.remove('text-red-400', 'animate-pulse');
-                    leftEl.classList.add('text-blue-400');
-                }
+                    const s = Math.floor(timeLeftMs / 1000) % 60;
+                    const m = Math.floor(timeLeftMs / 60000) % 60;
+                    const h = Math.floor(timeLeftMs / 3600000);
 
-            }, 1000);
+                    if (h > 0) {
+                        leftEl.textContent = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+                    } else {
+                        leftEl.textContent = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+                    }
+                    
+                    if (timeLeftMs <= 60000) {
+                        leftEl.classList.remove('text-blue-400');
+                        leftEl.classList.add('text-red-400', 'animate-pulse');
+                    } else {
+                        leftEl.classList.remove('text-red-400', 'animate-pulse');
+                        leftEl.classList.add('text-blue-400');
+                    }
+                } catch (e) {
+                    console.error("Error en reloj:", e);
+                }
+            };
+
+            updateClock();
+            setInterval(updateClock, 1000);
         }
 
         // INICIALIZACIÓN
+        initTradingClock();
         window.onload = () => {
             loadDatasets();
-            initTradingClock();
         };
