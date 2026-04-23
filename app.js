@@ -1267,10 +1267,10 @@ document.getElementById('file-input').addEventListener('change', e => {
 document.getElementById('btn-load-default')?.addEventListener('click', async () => {
     try {
         showLoader("Descargando archivo del servidor...");
-        const response = await fetch('EURUSD_M1_202412122350_202604221916.csv');
+        const response = await fetch('EURUSD.csv');
         if (!response.ok) throw new Error("No se pudo descargar el archivo del servidor.");
         const blob = await response.blob();
-        const file = new File([blob], 'EURUSD_M1_202412122350_202604221916.csv', { type: 'text/csv' });
+        const file = new File([blob], 'EURUSD.csv', { type: 'text/csv' });
 
         hideLoader();
         parseCSV(file);
