@@ -623,7 +623,11 @@
             const buyHoursEl = document.getElementById('split-buy-hours');
             const sellHoursEl = document.getElementById('split-sell-hours');
 
-            if (!stats || !buyStatsEl) return;
+            if (!stats) {
+                alert("Por favor, carga o selecciona un archivo de datos (CSV) primero para que el motor pueda calcular proyecciones basadas en volatilidad real.");
+                return;
+            }
+            if (!buyStatsEl) return;
 
             const inputPriceEl = document.getElementById('split-exec-price');
             if (!inputPriceEl.value && State.processedData && State.processedData.length > 0) {
