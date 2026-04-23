@@ -781,10 +781,10 @@
             `;
 
             // Heatmap - Nested Quartiles (basados en la base estadística seleccionada)
-            const buyBaseStats = groupsData.map(g => getExtendedStats(g.buy)[statType]);
-            const sellBaseStats = groupsData.map(g => getExtendedStats(g.sell)[statType]);
-            const globalBuyBaseQuartiles = MathUtils.quartiles(buyBaseStats);
-            const globalSellBaseQuartiles = MathUtils.quartiles(sellBaseStats);
+            const buyBaseStats = groupsData.map(g => getExtendedStats(g.buy)[statType]).filter(v => v > 0);
+            const sellBaseStats = groupsData.map(g => getExtendedStats(g.sell)[statType]).filter(v => v > 0);
+            const globalBuyBaseQuartiles = MathUtils.quartiles(buyBaseStats.length > 0 ? buyBaseStats : [0]);
+            const globalSellBaseQuartiles = MathUtils.quartiles(sellBaseStats.length > 0 ? sellBaseStats : [0]);
 
             const buildHoursHtml = (type) => {
                 let html = '';
@@ -808,8 +808,9 @@
 
                     let selectedStyles = specificHour === i ? 'ring-2 ring-white scale-110 z-10' : '';
                     
-                    html += `<div onclick="renderSplitView(${i})" class="flex-1 min-w-[36px] py-2 text-center rounded border text-xs font-mono font-bold transition-transform hover:scale-110 hover:z-10 cursor-pointer ${bgColor} ${selectedStyles}" title="Clic para proyectar este grupo (${statNames[statType]}: ${val.toFixed(1)} pips)">
-                        ${groupLabels[i]}
+                    html += `<div onclick="renderSplitView(${i})" class="flex-1 min-w-[36px] py-1 text-center rounded border transition-transform hover:scale-110 hover:z-10 cursor-pointer ${bgColor} ${selectedStyles}" title="Clic para proyectar este grupo (${statNames[statType]}: ${val.toFixed(1)} pips)">
+                        <div class="text-xs font-mono font-bold">${groupLabels[i]}</div>
+                        <div class="text-[9px] font-sans opacity-80 mt-0.5">${val.toFixed(1)}</div>
                     </div>`;
                 }
                 return html;
