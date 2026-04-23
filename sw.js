@@ -1,9 +1,18 @@
-javascript
-const CACHE_NAME = 'tradestats-v1';
+const CACHE_NAME = 'tradestats-v3';
+
+self.addEventListener('message', event => {
+    if (event.data && event.data.action === 'skipWaiting') {
+        self.skipWaiting();
+    }
+});
 const urlsToCache = [
     './',
     './index.html',
-    './manifest.json'
+    './manifest.json',
+    './app.js',
+    './style.css',
+    './tailwind.config.js',
+    './tailwindcss.js'
 ];
 
 self.addEventListener('install', event => {

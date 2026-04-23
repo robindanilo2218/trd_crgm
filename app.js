@@ -1,13 +1,26 @@
 // ==========================================
         // 1. REGISTRO SERVICE WORKER (Para Producción)
         // ==========================================
+        let newWorker;
         if ('serviceWorker' in navigator) {
-            // El navegador buscará sw.js en la misma carpeta del html.
-            // Si el archivo no existe (como aquí en el Canvas), lanzará un 404 seguro, 
-            // pero la app seguirá funcionando normalmente con IndexedDB.
-            navigator.serviceWorker.register('./sw.js')
-                .then(reg => console.log('SW Registrado', reg.scope))
-                .catch(err => console.warn('SW no encontrado, ejecutando en modo online regular.'));
+            navigator.serviceWorker.register('./sw.js').then(reg => {
+                console.log('SW Registrado', reg.scope);
+                reg.addEventListener('updatefound', () => {
+                    newWorker = reg.installing;
+                    newWorker.addEventListener('statechange', () => {
+                        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                            document.getElementById('btn-update-app')?.classList.remove('hidden');
+                        }
+                    });
+                });
+            }).catch(err => console.warn('SW no encontrado, online mode.'));
+
+            let refreshing;
+            navigator.serviceWorker.addEventListener('controllerchange', () => {
+                if (refreshing) return;
+                window.location.reload();
+                refreshing = true;
+            });
         }
 
         // ==========================================
@@ -646,6 +659,11 @@
             State.dateStart = null;
             State.dateEnd = null;
             renderAll();
+        });
+
+        // Actualización de App
+        document.getElementById('btn-update-app')?.addEventListener('click', () => {
+            if (newWorker) newWorker.postMessage({ action: 'skipWaiting' });
         });
 
         // Eventos Generales
