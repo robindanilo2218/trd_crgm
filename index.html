@@ -278,23 +278,33 @@
                     </p>
 
                     <!-- Parámetros base -->
-                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5 p-4 bg-slate-900 rounded-xl border border-slate-700">
+                    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-5 p-4 bg-slate-900 rounded-xl border border-slate-700">
                         <div>
-                            <label class="block text-xs text-slate-400 mb-1">💰 Capital del Depósito ($)</label>
+                            <label class="block text-xs text-slate-400 mb-1">💰 Capital ($)</label>
                             <input type="number" id="risk-balance" value="1000"
                                 class="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-blue-500 outline-none transition-colors">
                         </div>
                         <div>
-                            <label class="block text-xs text-slate-400 mb-1">⚠️ Riesgo Permitido (%)</label>
+                            <label class="block text-xs text-slate-400 mb-1">⚠️ Riesgo (%)</label>
                             <input type="number" id="risk-percent" value="1" step="0.1" min="0.01"
                                 class="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-blue-500 outline-none transition-colors">
                         </div>
                         <div>
-                            <label class="block text-xs text-slate-400 mb-1">💲 Valor por Pip / Lote Std ($)
-                                <span class="text-slate-600 ml-1 cursor-help" title="EURUSD ≈ $10, USDJPY ≈ $9.10, GBPUSD ≈ $10. Ajusta según tu broker e instrumento.">ⓘ</span>
+                            <label class="block text-xs text-slate-400 mb-1">💲 Valor Pip / Lote ($)
+                                <span class="text-slate-600 ml-1 cursor-help" title="EURUSD ≈ $10. Ajusta según broker.">ⓘ</span>
                             </label>
                             <input type="number" id="risk-pip-value" value="10" step="0.01" min="0.001"
                                 class="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-blue-500 outline-none transition-colors">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1">⚖️ Apalancamiento
+                                <span class="text-slate-600 ml-1 cursor-help" title="Ejemplo: 100 para 1:100. Se usa para estimar el margen requerido asumiendo 1 Lote = 100k unid.">ⓘ</span>
+                            </label>
+                            <div class="flex items-center">
+                                <span class="bg-slate-800 border border-slate-600 border-r-0 rounded-l-lg px-3 py-2 text-slate-400 text-sm">1:</span>
+                                <input type="number" id="risk-leverage" value="100" step="1" min="1"
+                                    class="w-full bg-slate-800 border border-slate-600 rounded-r-lg px-3 py-2 text-white text-sm focus:border-blue-500 outline-none transition-colors">
+                            </div>
                         </div>
                     </div>
 
@@ -396,6 +406,33 @@
                                 <p class="text-xs text-slate-600 mt-2" id="risk-max-sl-hint"></p>
                             </div>
 
+                            <!-- Proyección de Take Profit / Ratio RR -->
+                            <div class="border-t border-slate-700 pt-5">
+                                <h4 class="text-slate-300 font-semibold mb-3 text-sm flex items-center gap-2">
+                                    <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path></svg>
+                                    Proyección de Beneficio (Take Profit)
+                                </h4>
+                                <div class="grid grid-cols-2 gap-4 mb-4">
+                                    <div>
+                                        <label class="block text-xs text-slate-400 mb-1">Ratio (R:R)</label>
+                                        <div class="flex items-center">
+                                            <span class="bg-slate-800 border border-slate-600 border-r-0 rounded-l-lg px-2 py-1.5 text-slate-400 text-sm">1:</span>
+                                            <input type="number" id="risk-rr-input" value="2" step="0.1" min="0.1"
+                                                class="w-full bg-slate-900 border border-slate-600 rounded-r-lg px-2 py-1.5 text-emerald-400 font-mono text-sm focus:border-emerald-500 outline-none transition-colors">
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs text-slate-400 mb-1">Take Profit (<span id="tp-mode-label">Pips</span>)</label>
+                                        <input type="number" id="risk-tp-input" value="0" step="0.1" min="0.1"
+                                            class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-1.5 text-emerald-400 font-mono text-sm focus:border-emerald-500 outline-none transition-colors">
+                                    </div>
+                                </div>
+                                <div class="bg-emerald-950/30 border border-emerald-800/30 rounded-lg p-3 text-center">
+                                    <div class="text-xs text-slate-500 mb-1">Beneficio Proyectado ($)</div>
+                                    <div class="text-2xl font-bold text-emerald-400 font-mono" id="risk-profit-money">$0.00</div>
+                                </div>
+                            </div>
+
                             <!-- Verificación -->
                             <div class="border-t border-slate-700 pt-4 space-y-2 text-sm">
                                 <div class="flex justify-between text-slate-400">
@@ -403,7 +440,11 @@
                                     <span class="font-mono text-red-400" id="verify-loss">$0.00</span>
                                 </div>
                                 <div class="flex justify-between text-slate-400">
-                                    <span>% del capital:</span>
+                                    <span>Margen requerido (aprox):</span>
+                                    <span class="font-mono text-yellow-400" id="verify-margin">$0.00</span>
+                                </div>
+                                <div class="flex justify-between text-slate-400">
+                                    <span>% de pérdida sobre capital:</span>
                                     <span class="font-mono" id="verify-pct">0.00%</span>
                                 </div>
                                 <div class="text-xs font-mono bg-slate-800 rounded p-2 text-slate-500 mt-2 leading-relaxed" id="verify-formula">

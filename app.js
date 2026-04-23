@@ -617,8 +617,10 @@
 
         // ==========================================
         // 6. CALCULADORA DE RIESGO
-        // Estado del modo de calculadora: 'sl-to-lots' | 'lots-to-sl'
         State.calcMode = 'sl-to-lots';
+        State.currentSlPips = 0;
+        State.currentRiskMoney = 0;
+        State.currentLots = 0;
 
         function updateRiskMax() {
             const el = document.getElementById('risk-candle-idx');
@@ -731,6 +733,65 @@
                 document.getElementById('verify-pct').innerText = `${actualPct.toFixed(2)}%`;
                 document.getElementById('verify-formula').innerText =
                     `${lots} lotes × ${maxSlPips.toFixed(1)} pips × $${pipValue}/pip = $${actualLoss.toFixed(2)}`;
+                
+                slPips = maxSlPips;
+            }
+
+            State.currentSlPips = slPips;
+            State.currentLots = document.getElementById('risk-lots').innerText === '0.00' && State.calcMode === 'lots-to-sl' 
+                ? parseFloat(document.getElementById('risk-lots-input').value) || 0 
+                : parseFloat(document.getElementById('risk-lots').innerText) || 0;
+            State.currentRiskMoney = riskMoney;
+
+            // Margen
+            const leverage = parseFloat(document.getElementById('risk-leverage').value) || 100;
+            const margin = (State.currentLots * 100000) / leverage;
+            document.getElementById('verify-margin').innerText = `$${margin.toFixed(2)}`;
+
+            // Etiqueta TP
+            const slLabelMap = { pips: 'Pips', points: 'Puntos', value: 'Valor (precio)' };
+            document.getElementById('tp-mode-label').innerText = slLabelMap[State.displayMode];
+
+            // Proyección
+            calcTPProj('rr');
+        }
+
+        function calcTPProj(source) {
+            const slPips = State.currentSlPips || 0;
+            const riskMoney = State.currentRiskMoney || 0;
+            const rrInput = document.getElementById('risk-rr-input');
+            const tpInput = document.getElementById('risk-tp-input');
+
+            if (slPips <= 0) {
+                document.getElementById('risk-profit-money').innerText = '$0.00';
+                return;
+            }
+
+            if (source === 'rr') {
+                const rr = parseFloat(rrInput.value) || 0;
+                let tpPips = slPips * rr;
+                
+                let tpDisp;
+                switch(State.displayMode) {
+                    case 'pips': tpDisp = tpPips; break;
+                    case 'points': tpDisp = tpPips * 10; break;
+                    case 'value': tpDisp = tpPips / (State.stats?.pipMult || 10000); break;
+                }
+                
+                tpInput.value = State.displayMode === 'value' ? tpDisp.toFixed(5) : tpDisp.toFixed(1);
+                document.getElementById('risk-profit-money').innerText = `$${(riskMoney * rr).toFixed(2)}`;
+            } else if (source === 'tp') {
+                const tpDisp = parseFloat(tpInput.value) || 0;
+                let tpPips;
+                switch(State.displayMode) {
+                    case 'pips': tpPips = tpDisp; break;
+                    case 'points': tpPips = tpDisp / 10; break;
+                    case 'value': tpPips = tpDisp * (State.stats?.pipMult || 10000); break;
+                }
+                
+                const rr = tpPips / slPips;
+                rrInput.value = rr.toFixed(2);
+                document.getElementById('risk-profit-money').innerText = `$${(riskMoney * rr).toFixed(2)}`;
             }
         }
 
@@ -828,7 +889,7 @@
         document.getElementById('btn-recalc-ind').addEventListener('click', renderAll);
 
         // Eventos de Calculadora de Riesgo — base
-        ['risk-balance', 'risk-percent', 'risk-pip-value'].forEach(id => {
+        ['risk-balance', 'risk-percent', 'risk-pip-value', 'risk-leverage'].forEach(id => {
             document.getElementById(id).addEventListener('input', calcRisk);
         });
 
@@ -845,6 +906,10 @@
 
         // Modo B: input de lotaje
         document.getElementById('risk-lots-input').addEventListener('input', calcRisk);
+
+        // Proyección TP
+        document.getElementById('risk-rr-input').addEventListener('input', () => calcTPProj('rr'));
+        document.getElementById('risk-tp-input').addEventListener('input', () => calcTPProj('tp'));
 
         // Toggle de modo de calculadora
         document.getElementById('calc-mode-sl-to-lots').addEventListener('click', () => {
