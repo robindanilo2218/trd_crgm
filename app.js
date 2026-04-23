@@ -789,9 +789,8 @@
 
                     let selectedStyles = specificHour === h ? 'ring-2 ring-white scale-110 z-10' : '';
                     
-                    html += `<div onclick="renderSplitView(${h})" class="flex-1 min-w-[40px] py-1.5 text-center rounded border transition-transform hover:scale-110 hover:z-10 cursor-pointer flex flex-col items-center justify-center ${bgColor} ${selectedStyles}" title="Clic para proyectar esta hora (${statNames[statType]}: ${val.toFixed(1)} pips)">
-                        <span class="text-[11px] font-mono font-bold leading-none">${h}h</span>
-                        <span class="text-[9px] font-mono opacity-90 leading-none mt-1">${val.toFixed(1)}</span>
+                    html += `<div onclick="renderSplitView(${h})" class="flex-1 min-w-[36px] py-2 text-center rounded border text-xs font-mono font-bold transition-transform hover:scale-110 hover:z-10 cursor-pointer ${bgColor} ${selectedStyles}" title="Clic para proyectar esta hora (${statNames[statType]}: ${val.toFixed(1)} pips)">
+                        ${h}h
                     </div>`;
                 }
                 return html;
