@@ -104,6 +104,22 @@
                 </div>
             </div>
 
+            <!-- Display Mode Selector -->
+            <div class="flex flex-col items-center gap-1">
+                <span class="text-[10px] text-slate-500 uppercase tracking-wider">Modo</span>
+                <div class="flex gap-0.5 bg-slate-900 p-1 rounded-lg border border-slate-700" id="display-mode-group">
+                    <button id="mode-pips"
+                        class="display-mode-btn px-3 py-1.5 rounded text-xs font-bold bg-blue-600 text-white transition-all"
+                        data-mode="pips" title="Pips (movimiento estándar)">Pips</button>
+                    <button id="mode-points"
+                        class="display-mode-btn px-3 py-1.5 rounded text-xs font-bold text-slate-400 hover:text-white hover:bg-slate-800 transition-all"
+                        data-mode="points" title="Puntos (1/10 de pip)">Pts</button>
+                    <button id="mode-value"
+                        class="display-mode-btn px-3 py-1.5 rounded text-xs font-bold text-slate-400 hover:text-white hover:bg-slate-800 transition-all"
+                        data-mode="value" title="Valor de precio real (0.00000)">Valor</button>
+                </div>
+            </div>
+
             <div class="flex gap-1 bg-slate-900 p-1 rounded-lg border border-slate-700 overflow-x-auto max-w-full">
                 <button class="time-filter-btn px-3 py-1.5 rounded text-xs font-medium bg-blue-600 text-white shrink-0"
                     data-tf="M1">M1</button>
@@ -307,7 +323,7 @@
                             </div>
 
                             <div>
-                                <label class="block text-sm text-slate-400 mb-1">Stop Loss Final (Pips)</label>
+                                <label class="block text-sm text-slate-400 mb-1">Stop Loss Final (<span id="sl-mode-label">Pips</span>)</label>
                                 <input type="number" id="risk-sl" value="0" step="0.1"
                                     class="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-2 text-blue-400 font-mono focus:border-blue-500 transition-colors">
                             </div>

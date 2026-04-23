@@ -81,9 +81,45 @@
             dateEnd: null,
             processedData: [],
             stats: null,
-            // Columnas personalizadas
-            customColumns: []
+            customColumns: [],
+            displayMode: 'pips' // 'pips' | 'points' | 'value'
         };
+
+        // ==========================================
+        // MODO DE VISUALIZACIÓN
+        // ==========================================
+        /**
+         * Convierte un delta de precio al modo activo y lo formatea.
+         * @param {number} rawDelta  - Diferencia de precio cruda (ej. close - open)
+         * @param {number} pipMult   - Multiplicador de pips (100 para JPY, 10000 para normal)
+         * @param {boolean} abs      - Si true retorna valor absoluto
+         * @returns {string}
+         */
+        function formatVal(rawDelta, pipMult, abs = false) {
+            let v = abs ? Math.abs(rawDelta) : rawDelta;
+            switch (State.displayMode) {
+                case 'pips':   return (v * pipMult).toFixed(1);
+                case 'points': return (v * pipMult * 10).toFixed(0);
+                case 'value':  return v.toFixed(5);
+            }
+        }
+
+        function modeLabel() {
+            return { pips: 'pips', points: 'pts', value: 'valor' }[State.displayMode];
+        }
+
+        function modeDecimals() {
+            return { pips: 1, points: 0, value: 5 }[State.displayMode];
+        }
+
+        /** Convierte un valor ya-en-pips al modo activo (para datos post-computeStats) */
+        function fromPips(pipValue) {
+            switch (State.displayMode) {
+                case 'pips':   return pipValue.toFixed(1);
+                case 'points': return (pipValue * 10).toFixed(0);
+                case 'value':  return (pipValue / (State.stats?.pipMult || 10000)).toFixed(5);
+            }
+        }
 
         const MathUtils = {
             quartiles(arr) {
@@ -363,6 +399,7 @@
         function computeStats(data) {
             if (!data || data.length === 0) return null;
 
+            // Siempre almacenamos internamente en PIPS para facilitar la conversión
             let pos = [], neg = [], rsi = [], atr = [], vol = [], hours = {};
             const avgP = data[0].close;
             const pipMult = (avgP < 200 && avgP > 10) ? 100 : 10000; // JPY o normal
@@ -395,6 +432,7 @@
 
             return {
                 pipMult,
+                // Almacenados en PIPS internamente
                 pos: MathUtils.quartiles(pos), modePos: MathUtils.mode(pos),
                 neg: MathUtils.quartiles(neg), modeNeg: MathUtils.mode(neg),
                 rsi: MathUtils.quartiles(rsi),
@@ -501,17 +539,25 @@
             tbody.innerHTML = bodyHtml;
         }
 
-        function createQuartileHTML(title, data, suffix = "") {
+        /**
+         * Crea un card de cuartiles.
+         * @param {string} title
+         * @param {object} data     - Cuartiles ya en PIPS
+         * @param {boolean} isPips  - Si true, convierte con fromPips(); si false, muestra raw
+         */
+        function createQuartileHTML(title, data, isPips = false) {
             if (!data) return '';
+            const fmt = v => isPips ? fromPips(v) : v.toFixed(4);
+            const suffix = isPips ? ` ${modeLabel()}` : '';
             return `
                 <div class="bg-slate-800 rounded-xl border border-slate-700 shadow-lg p-5">
                     <h3 class="text-slate-300 font-semibold mb-4 border-b border-slate-700 pb-2">${title} <span class="text-xs text-slate-500 ml-2">(n=${data.count})</span></h3>
                     <div class="space-y-2 text-sm">
-                        <div class="flex justify-between"><span class="text-slate-500">Mínimo:</span> <span class="font-mono">${data.min.toFixed(4)}${suffix}</span></div>
-                        <div class="flex justify-between"><span class="text-slate-500">Q1 (25%):</span> <span class="font-mono text-blue-400">${data.q1.toFixed(4)}${suffix}</span></div>
-                        <div class="flex justify-between"><span class="text-slate-500">Mediana (Q2):</span> <span class="font-mono text-green-400">${data.q2.toFixed(4)}${suffix}</span></div>
-                        <div class="flex justify-between"><span class="text-slate-500">Q3 (75%):</span> <span class="font-mono text-purple-400">${data.q3.toFixed(4)}${suffix}</span></div>
-                        <div class="flex justify-between"><span class="text-slate-500">Máximo:</span> <span class="font-mono">${data.max.toFixed(4)}${suffix}</span></div>
+                        <div class="flex justify-between"><span class="text-slate-500">Mínimo:</span> <span class="font-mono">${fmt(data.min)}${suffix}</span></div>
+                        <div class="flex justify-between"><span class="text-slate-500">Q1 (25%):</span> <span class="font-mono text-blue-400">${fmt(data.q1)}${suffix}</span></div>
+                        <div class="flex justify-between"><span class="text-slate-500">Mediana (Q2):</span> <span class="font-mono text-green-400">${fmt(data.q2)}${suffix}</span></div>
+                        <div class="flex justify-between"><span class="text-slate-500">Q3 (75%):</span> <span class="font-mono text-purple-400">${fmt(data.q3)}${suffix}</span></div>
+                        <div class="flex justify-between"><span class="text-slate-500">Máximo:</span> <span class="font-mono">${fmt(data.max)}${suffix}</span></div>
                     </div>
                 </div>
             `;
@@ -521,19 +567,21 @@
             const stats = State.stats;
             if (!stats) return;
 
+            const lbl = modeLabel();
+
             // Velas
             const cVelas = document.getElementById('velas-container');
             cVelas.innerHTML = `
-                ${createQuartileHTML('▲ Velas Alcistas (Positivas)', stats.pos, ' pips')}
-                ${createQuartileHTML('▼ Velas Bajistas (Negativas)', stats.neg, ' pips')}
+                ${createQuartileHTML('▲ Velas Alcistas (Positivas)', stats.pos, true)}
+                ${createQuartileHTML('▼ Velas Bajistas (Negativas)', stats.neg, true)}
                 <div class="col-span-1 lg:col-span-2 grid grid-cols-2 gap-6 mt-4">
                     <div class="bg-slate-900 border border-slate-700 p-4 rounded-lg flex flex-col items-center justify-center">
                         <span class="text-slate-500 text-sm mb-1">Moda Alcista (Mov. Frecuente)</span>
-                        <span class="text-2xl font-bold text-green-400">${stats.modePos.toFixed(1)} pips</span>
+                        <span class="text-2xl font-bold text-green-400">${fromPips(stats.modePos)} ${lbl}</span>
                     </div>
                     <div class="bg-slate-900 border border-slate-700 p-4 rounded-lg flex flex-col items-center justify-center">
                         <span class="text-slate-500 text-sm mb-1">Moda Bajista (Mov. Frecuente)</span>
-                        <span class="text-2xl font-bold text-red-400">${stats.modeNeg.toFixed(1)} pips</span>
+                        <span class="text-2xl font-bold text-red-400">${fromPips(stats.modeNeg)} ${lbl}</span>
                     </div>
                 </div>
             `;
@@ -545,13 +593,13 @@
                 hHtml += `
                 <tr class="hover:bg-slate-700/50">
                     <td class="px-4 py-3 font-bold text-white">${h.hour.toString().padStart(2, '0')}:00</td>
-                    <td class="px-4 py-3 font-mono text-blue-400">${h.avgRange.toFixed(1)}</td>
-                    <td class="px-4 py-3 font-mono text-yellow-400">${h.mode.toFixed(1)}</td>
-                    <td class="px-4 py-3 font-mono text-slate-400">${h.quartiles.min.toFixed(1)}</td>
-                    <td class="px-4 py-3 font-mono">${h.quartiles.q1.toFixed(1)}</td>
-                    <td class="px-4 py-3 font-mono text-green-400">${h.quartiles.q2.toFixed(1)}</td>
-                    <td class="px-4 py-3 font-mono text-purple-400">${h.quartiles.q3.toFixed(1)}</td>
-                    <td class="px-4 py-3 font-mono text-slate-400">${h.quartiles.max.toFixed(1)}</td>
+                    <td class="px-4 py-3 font-mono text-blue-400">${fromPips(h.avgRange)}</td>
+                    <td class="px-4 py-3 font-mono text-yellow-400">${fromPips(h.mode)}</td>
+                    <td class="px-4 py-3 font-mono text-slate-400">${fromPips(h.quartiles.min)}</td>
+                    <td class="px-4 py-3 font-mono">${fromPips(h.quartiles.q1)}</td>
+                    <td class="px-4 py-3 font-mono text-green-400">${fromPips(h.quartiles.q2)}</td>
+                    <td class="px-4 py-3 font-mono text-purple-400">${fromPips(h.quartiles.q3)}</td>
+                    <td class="px-4 py-3 font-mono text-slate-400">${fromPips(h.quartiles.max)}</td>
                 </tr>`;
             });
             tBodyHours.innerHTML = hHtml;
@@ -561,9 +609,9 @@
             const atrP = document.getElementById('input-atr').value;
             const cInd = document.getElementById('indicadores-container');
             cInd.innerHTML = `
-                ${createQuartileHTML(`RSI (${rsiP})`, stats.rsi)}
-                ${createQuartileHTML(`ATR (${atrP}) Volatilidad`, stats.atr, ' pips')}
-                ${createQuartileHTML(`Volumen (Ticks)`, stats.vol)}
+                ${createQuartileHTML(`RSI (${rsiP})`, stats.rsi, false)}
+                ${createQuartileHTML(`ATR (${atrP}) Volatilidad`, stats.atr, true)}
+                ${createQuartileHTML(`Volumen (Ticks)`, stats.vol, false)}
             `;
         }
 
@@ -587,7 +635,9 @@
 
             document.getElementById('risk-candle-label').innerText = `Vela #${idx}`;
 
-            let slPips = parseFloat(document.getElementById('risk-sl').value) || 1;
+            // El input de SL siempre se lee en la unidad activa; lo convertimos a pips internamente
+            const slInputRaw = parseFloat(document.getElementById('risk-sl').value) || 1;
+            let slPips;  // valor en pips para el cálculo de lotes
 
             if (strategy !== 'manual') {
                 if (strategy === 'vela') {
@@ -609,15 +659,26 @@
                         const lastCandle = State.processedData[State.processedData.length - 1];
                         slPips = lastCandle && lastCandle.atr ? (lastCandle.atr * State.stats.pipMult) : 1;
                     }
-                    slPips = Math.max(1, slPips); // Asegurar que sea mayor a cero
+                    slPips = Math.max(1, slPips);
                 }
-                document.getElementById('risk-sl').value = slPips.toFixed(1);
+                // Mostrar SL en la unidad activa
+                document.getElementById('risk-sl').value = fromPips(slPips);
             } else {
                 document.getElementById('slider-container').classList.add('hidden');
+                // Convertir el valor ingresado por el usuario a pips
+                switch (State.displayMode) {
+                    case 'pips':   slPips = Math.max(0.001, slInputRaw); break;
+                    case 'points': slPips = Math.max(0.001, slInputRaw / 10); break;
+                    case 'value':  slPips = Math.max(0.001, slInputRaw * (State.stats.pipMult || 10000)); break;
+                }
             }
 
+            // Actualizar etiqueta del SL
+            const slLabelMap = { pips: 'Pips', points: 'Puntos', value: 'Valor (precio)' };
+            document.getElementById('sl-mode-label').innerText = slLabelMap[State.displayMode];
+
             const riskMoney = bal * (pct / 100);
-            const lotSize = riskMoney / (slPips * 10); // $10 por pip lote std
+            const lotSize = riskMoney / (slPips * 10); // $10 por pip por lote estándar
 
             document.getElementById('risk-money').innerText = `$${riskMoney.toFixed(2)}`;
             document.getElementById('risk-lots').innerText = isFinite(lotSize) && lotSize > 0 ? lotSize.toFixed(2) : '0.00';
@@ -694,6 +755,19 @@
         // Actualización de App
         document.getElementById('btn-update-app')?.addEventListener('click', () => {
             if (newWorker) newWorker.postMessage({ action: 'skipWaiting' });
+        });
+
+        // Display Mode Buttons
+        document.querySelectorAll('.display-mode-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                State.displayMode = btn.dataset.mode;
+                document.querySelectorAll('.display-mode-btn').forEach(b => {
+                    b.className = 'display-mode-btn px-3 py-1.5 rounded text-xs font-bold text-slate-400 hover:text-white hover:bg-slate-800 transition-all';
+                });
+                btn.className = 'display-mode-btn px-3 py-1.5 rounded text-xs font-bold bg-blue-600 text-white transition-all';
+                renderStatsTabs();
+                calcRisk();
+            });
         });
 
         // Eventos Generales
