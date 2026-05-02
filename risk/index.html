@@ -1,0 +1,1146 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trading Quant PWA - Institutional</title>
+    <!-- Manifest PWA Autogenerado -->
+    <link rel="manifest" href='data:application/manifest+json;utf8,{"name":"Trading Quant","short_name":"Quant","start_url":".","display":"standalone","background_color":"#0A192F","theme_color":"#0A192F"}'>
+    
+    <style>
+        /* CSS MINIMALISTA */
+        :root {
+            --bg-color: #0A192F; 
+            --text-color: #E2E8F0; 
+            --border-color: #38BDF8; 
+            --element-bg: #112240; 
+            --bullish-color: #10B981; 
+            --bearish-color: #EF4444; 
+            --risk-color: #F59E0B;
+            --predict-color: #A855F7;
+        }
+        
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: system-ui, -apple-system, sans-serif;
+            margin: 0;
+            padding: 10px;
+            font-size: 14px;
+        }
+
+        fieldset {
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            margin-bottom: 15px;
+            padding: 12px;
+            background-color: rgba(17, 34, 64, 0.5);
+        }
+
+        legend { color: var(--border-color); font-weight: bold; padding: 0 5px; }
+
+        button, select, input {
+            background-color: var(--element-bg);
+            color: var(--text-color);
+            border: 1px solid var(--border-color);
+            padding: 8px 12px;
+            margin: 3px;
+            border-radius: 4px;
+            outline: none;
+            cursor: pointer;
+        }
+
+        button:active { background-color: var(--border-color); color: var(--bg-color); }
+        input[type="number"], input[type="date"], input[type="month"] { width: auto; min-width: 100px; }
+        
+        table { width: 100%; border-collapse: collapse; margin-top: 5px; font-size: 11px; }
+        th, td { border: 1px solid rgba(255,255,255,0.1); padding: 5px; text-align: center; }
+        th { background-color: rgba(0,0,0,0.3); color: #94A3B8; }
+
+        .flex-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+        .active-btn { background-color: var(--border-color); color: var(--bg-color); font-weight: bold; box-shadow: 0 0 8px rgba(56, 189, 248, 0.6); }
+
+        .scenarios-container { display: flex; flex-direction: row; gap: 15px; width: 100%; overflow-x: auto; padding-bottom: 10px; scroll-behavior: smooth; }
+        .scenario-box { flex: 1; min-width: 450px; margin-bottom: 0; }
+
+        .current-time-highlight { box-shadow: 0 0 12px 2px #F59E0B !important; border: 2px solid #F59E0B !important; }
+
+        /* ACORDEONES HEATMAP */
+        details.heatmap-row > summary {
+            list-style: none; cursor: pointer; padding: 10px; border-radius: 4px; margin-bottom: 4px;
+            transition: filter 0.2s; border: 1px solid rgba(255,255,255,0.05); font-size: 13px;
+        }
+        details.heatmap-row > summary::-webkit-details-marker { display: none; }
+        details.heatmap-row > summary:hover { filter: brightness(1.2); }
+        details.heatmap-row[open] > summary { border-bottom-left-radius: 0; border-bottom-right-radius: 0; margin-bottom: 0; }
+        .details-content {
+            background-color: rgba(0,0,0,0.2); padding: 10px; border: 1px solid rgba(255,255,255,0.05);
+            border-top: none; border-bottom-left-radius: 4px; border-bottom-right-radius: 4px; margin-bottom: 8px;
+        }
+        
+        .risk-row { background-color: rgba(245, 158, 11, 0.1); color: #FCD34D; font-weight: bold; }
+        
+        /* RELOJ FLOTANTE MINIMALISTA */
+        #floating-clock {
+            position: fixed; bottom: 10px; right: 10px; background-color: rgba(17, 34, 64, 0.7);
+            border: 1px solid rgba(56, 189, 248, 0.3); padding: 4px 8px; border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3); z-index: 1000; font-family: monospace; text-align: center;
+            cursor: pointer; transition: all 0.3s ease;
+        }
+        #floating-clock:hover { background-color: rgba(17, 34, 64, 0.95); border-color: var(--border-color); }
+        #clock-time-simple { font-size: 11px; color: #64748B; white-space: nowrap; font-weight: bold; transition: color 0.3s ease; }
+        .clock-warning { color: #F97316 !important; }
+        .clock-danger { color: #EF4444 !important; animation: pulse-danger 2s infinite; }
+        @keyframes pulse-danger { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+        .clock-details { display: none; margin-top: 5px; padding-top: 5px; border-top: 1px dashed rgba(56, 189, 248, 0.3); text-align: left; }
+        #floating-clock.expanded .clock-details { display: block; }
+        
+        /* PANEL PREDICTOR */
+        .predict-panel {
+            background: linear-gradient(135deg, rgba(168, 85, 247, 0.1) 0%, rgba(17, 34, 64, 0.8) 100%);
+            border: 1px solid var(--predict-color); border-radius: 6px; padding: 12px; margin-bottom: 15px;
+        }
+        .predict-result-box {
+            background: rgba(0,0,0,0.3); border: 1px solid rgba(168, 85, 247, 0.3);
+            padding: 10px; border-radius: 6px; display: flex; gap: 15px; flex-wrap: wrap; margin-top: 10px;
+        }
+        .predict-metric { flex: 1; min-width: 120px; text-align: center; }
+        .predict-metric span { display: block; font-size: 11px; color: #94A3B8; text-transform: uppercase; margin-bottom: 4px; }
+        .predict-metric b { font-size: 16px; color: #E2E8F0; }
+    </style>
+</head>
+<body>
+
+    <!-- CALCULADORA DE RIESGO CUANTITATIVO -->
+    <fieldset style="border-color: var(--risk-color); box-shadow: 0 0 10px rgba(245, 158, 11, 0.1);">
+        <legend style="color: var(--risk-color);">Calculadora de Riesgo Institucional</legend>
+        <div class="flex-row">
+            <label>Capital ($): <input type="number" id="calc-capital" value="200000" oninput="procesarYRenderizar()"></label>
+            <label>Riesgo (%): <input type="number" id="calc-risk" value="1" step="0.1" oninput="procesarYRenderizar()"></label>
+            <label>Ratio 1: <input type="number" id="calc-ratio" value="3" step="0.5" oninput="procesarYRenderizar()"></label>
+            <label>Valor Pip (1 Lote): <input type="number" id="calc-pipvalue" value="10" title="Ej: 1 lote estándar = $10 por pip" oninput="procesarYRenderizar()"></label>
+            <label>Apalancamiento: 1:<input type="number" id="calc-leverage" value="100" step="1" title="Apalancamiento de tu cuenta" style="width: 70px;" oninput="procesarYRenderizar()"></label>
+            <label>Límite Lotes: <input type="number" id="calc-maxlots" value="50" step="1" title="Límite máximo de lotaje permitido por el broker" oninput="procesarYRenderizar()"></label>
+        </div>
+    </fieldset>
+
+    <!-- SIMULADOR PREDICTIVO (WHAT-IF) -->
+    <div class="predict-panel">
+        <div style="color: var(--predict-color); font-weight: bold; margin-bottom: 10px; font-size: 15px;">🔮 Simulador Predictivo (Hora/Día Actual)</div>
+        <div class="flex-row">
+            <label>Precio Open: <input type="number" id="pred-open" placeholder="Ej: 1.05000" step="0.00001" oninput="actualizarPredictor()"></label>
+            <label>Dirección:
+                <select id="pred-dir" onchange="actualizarPredictor()">
+                    <option value="bull">Bullish (Compra)</option>
+                    <option value="bear">Bearish (Venta)</option>
+                </select>
+            </label>
+            <label>Basado en Cuartil:
+                <select id="pred-q" onchange="actualizarPredictor()">
+                    <option value="q0">Q0</option>
+                    <option value="q1">Q1</option>
+                    <option value="q2" selected>Q2</option>
+                    <option value="q3">Q3</option>
+                    <option value="q4">Q4</option>
+                </select>
+            </label>
+            
+            <!-- NUEVO: Botón para alternar la fuente de datos -->
+            <button id="pred-source-btn" data-source="specific" onclick="togglePredictSource()" style="background-color: var(--border-color); color: var(--bg-color); font-weight: bold; border-color: var(--border-color); margin-left: 5px;">📊 Datos: Específicos</button>
+
+            <span id="pred-status" style="font-size: 12px; color: #F59E0B; margin-left: auto;">Esperando Precio Open...</span>
+        </div>
+        
+        <div class="predict-result-box" id="predict-results" style="display: none;">
+            <div class="predict-metric" style="border-right: 1px solid rgba(255,255,255,0.1);">
+                <span>🎯 Take Profit Esperado</span>
+                <b id="res-tp" style="color: var(--bullish-color);">0.00000</b>
+                <div id="res-tp-dist" style="font-size:10px; color:#94A3B8;">0 pips</div>
+            </div>
+            <div class="predict-metric" style="border-right: 1px solid rgba(255,255,255,0.1);">
+                <span>🛡️ Stop Loss / Drawdown Máx</span>
+                <b id="res-sl" style="color: var(--bearish-color);">0.00000</b>
+                <div id="res-sl-dist" style="font-size:10px; color:#94A3B8;">0 pips</div>
+            </div>
+            <div class="predict-metric" style="border-right: 1px solid rgba(255,255,255,0.1);">
+                <span>📦 Volumen Sugerido</span>
+                <b id="res-vol">0.00 Lotes</b>
+                <!-- NUEVO: Mostrará el dinero exacto en riesgo -->
+                <div id="res-vol-risk" style="font-size:10px; color: var(--risk-color); font-weight: bold;">Riesgo: $0.00</div>
+            </div>
+            <div class="predict-metric">
+                <span>⚖️ Ratio Natural (Mercado)</span>
+                <b id="res-ratio">1:0.00</b>
+            </div>
+        </div>
+    </div>
+
+    <!-- SELECTOR DE TEMPORALIDADES (Velas Base) -->
+    <fieldset>
+        <legend>Constructor de Rama Estadística</legend>
+        <div class="flex-row" id="timeframe-buttons">
+            <button data-tf="M1">M1</button> <button data-tf="M5">M5</button> <button data-tf="M15">M15</button> <button data-tf="M30">M30</button> 
+            <button data-tf="H1">H1</button> <button data-tf="H2">H2</button> <button data-tf="H3">H3</button> <button data-tf="H4">H4</button> 
+            <button data-tf="H5">H5</button> <button data-tf="H6">H6</button> <button data-tf="H12">H12</button> 
+            <button data-tf="D1">D1</button> <button data-tf="W1">W1</button> <button data-tf="MN1">MN1</button> <button data-tf="Y1" class="active-btn">Y1</button> 
+        </div>
+    </fieldset>
+
+    <!-- CONFIGURACIÓN DE FORMATO Y FILTROS -->
+    <fieldset>
+        <legend>Formato y Filtro Global Avanzado</legend>
+        <div class="flex-row">
+            <label>Vista en:
+                <select id="format-selector" onchange="cambiarFormato()">
+                    <option value="price">Formato 0.00000</option>
+                    <option value="pips" selected>Pips</option>
+                    <option value="points">Puntos</option>
+                </select>
+            </label>
+            <label style="margin-left: 10px;">Filtro Temporal:
+                <select id="filter-mode" onchange="updateFilterUI(); procesarYRenderizar()">
+                    <option value="ALL" selected>Todo el Historial</option>
+                    <option value="RANGE">Rango de Fechas</option>
+                    <option value="HOUR">Hora Específica</option>
+                    <option value="DAY">Día Específico</option>
+                    <option value="WEEK">Semana Específica</option>
+                    <option value="MONTH_ALL">Mes (Estacionalidad, todos los años)</option>
+                    <option value="MONTH_YEAR">Mes Específico</option>
+                    <option value="YEAR">Año Específico</option>
+                </select>
+            </label>
+            
+            <!-- Contenedor dinámico para inputs de fecha -->
+            <span id="filter-inputs" class="flex-row"></span>
+            
+            <!-- BOTONES DE NAVEGACIÓN INTELIGENTE -->
+            <button id="btn-prev" onclick="navigateFilter(-1)" style="margin-left: auto;">&lt; Atrás</button>
+            <button id="btn-next" onclick="navigateFilter(1)">Adelante &gt;</button>
+        </div>
+        
+        <div id="active-filter-label" style="margin-top: 15px; padding: 10px; background-color: rgba(56, 189, 248, 0.1); border: 1px dashed var(--border-color); text-align: center; font-size: 16px; font-weight: bold; color: var(--border-color); border-radius: 4px; text-transform: uppercase;">
+            Mostrando: TODO EL HISTORIAL
+        </div>
+    </fieldset>
+
+    <!-- IMPORTAR DATOS ACUMULATIVO -->
+    <fieldset>
+        <legend>Añadir Historial de Datos (CSV)</legend>
+        <input type="file" id="csv-upload" accept=".csv">
+        <span id="upload-status" style="color: var(--border-color); font-size: 12px; margin-left: 10px;">Datos por defecto cargados. (Sube más CSV para acumular historial)</span>
+    </fieldset>
+
+    <!-- ESCENARIOS BULLISH Y BEARISH -->
+    <div id="scenarios" class="scenarios-container">
+        <fieldset id="bullish-box" class="scenario-box" style="border-color: var(--bullish-color);">
+            <legend style="color: var(--bullish-color);">📈 Escenario Bullish (Cierres Alcistas)</legend>
+            <div id="bullish-content"></div>
+        </fieldset>
+
+        <fieldset id="bearish-box" class="scenario-box" style="border-color: var(--bearish-color);">
+            <legend style="color: var(--bearish-color);">📉 Escenario Bearish (Cierres Bajistas)</legend>
+            <div id="bearish-content"></div>
+        </fieldset>
+    </div>
+
+    <!-- RELOJ FLOTANTE MINIMALISTA -->
+    <div id="floating-clock" onclick="this.classList.toggle('expanded')" title="Toca para expandir">
+        <div id="clock-time-simple">00:00</div>
+        <div class="clock-details">
+            <div style="color: #94A3B8; font-size: 10px; font-weight: bold;">MERCADO GMT+2</div>
+            <div id="clock-time-full" style="font-size: 14px; color: var(--text-color); margin: 2px 0;">00:00:00</div>
+            <div style="color: var(--risk-color); font-size: 10px; margin-top: 4px;">Cierre <span id="clock-tf-label">Y1</span>:</div>
+            <div id="clock-countdown-full" style="font-size: 13px; color: var(--text-color);">00:00:00</div>
+        </div>
+    </div>
+
+    <script>
+        // 1. OFFLINE FIRST
+        const swCode = `self.addEventListener('fetch', e => e.respondWith(fetch(e.request).catch(() => new Response('PWA Offline Activa'))));`;
+        const blob = new Blob([swCode], { type: 'application/javascript' });
+        if ('serviceWorker' in navigator) navigator.serviceWorker.register(URL.createObjectURL(blob));
+
+        // 2. ESTADO
+        let rawData = [];
+        let formatoActual = 'pips';
+        let multiplicadorPips = 10000;
+        let multiplicadorPuntos = 100000;
+        let activeTimeframe = 'Y1'; 
+        let baseDateForFilters = new Date(); 
+        
+        let memoriaGruposBullish = {};
+        let memoriaGruposBearish = {};
+
+        const defaultCSV = `DATE\tTIME\tOPEN\tHIGH\tLOW\tCLOSE\tTICKVOL\tVOL\tSPREAD
+2024.12.12\t08:00:00\t1.04000\t1.04500\t1.03800\t1.04400\t5\t0\t3
+2024.12.12\t09:00:00\t1.04400\t1.04800\t1.04200\t1.04600\t5\t0\t3
+2024.12.12\t10:00:00\t1.04600\t1.04700\t1.04100\t1.04200\t5\t0\t3
+2024.12.13\t08:00:00\t1.04200\t1.04600\t1.04000\t1.04500\t5\t0\t3
+2025.01.10\t08:00:00\t1.05000\t1.05500\t1.04800\t1.05400\t5\t0\t3
+2025.01.10\t09:00:00\t1.05400\t1.05600\t1.05100\t1.05200\t5\t0\t3`;
+
+        // 3. PARSER
+        function parseCSV(csvText) {
+            const lines = csvText.trim().split('\n');
+            const data = [];
+            for (let i = 1; i < lines.length; i++) {
+                const sep = lines[i].includes('\t') ? '\t' : ',';
+                const cols = lines[i].split(sep);
+                if (cols.length >= 6) {
+                    const timeStr = cols[1];
+                    const hour = parseInt(timeStr.split(':')[0]);
+                    let cleanDate = cols[0].replace(/\//g, '.').replace(/-/g, '.');
+                    const dateParts = cleanDate.split('.');
+                    let dateObj = null;
+                    if(dateParts.length >= 3) {
+                        dateObj = new Date(dateParts[0], parseInt(dateParts[1])-1, dateParts[2]);
+                        dateObj.setHours(hour);
+                    }
+                    data.push({
+                        date: cols[0], time: timeStr, hour: isNaN(hour) ? 0 : hour,
+                        open: parseFloat(cols[2]), high: parseFloat(cols[3]),
+                        low: parseFloat(cols[4]), close: parseFloat(cols[5]),
+                        dateObj: dateObj
+                    });
+                }
+            }
+            return data;
+        }
+
+        // --- SISTEMA DE FILTRO GLOBAL DINÁMICO ---
+        function getWeekString(date) {
+            const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+            const dayNum = d.getUTCDay() || 7;
+            d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+            const yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1));
+            const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1)/7);
+            return d.getUTCFullYear() + '-W' + String(weekNo).padStart(2, '0');
+        }
+
+        window.updateFilterUI = function() {
+            const mode = document.getElementById('filter-mode').value;
+            const container = document.getElementById('filter-inputs');
+            container.innerHTML = '';
+            
+            const y = baseDateForFilters.getFullYear();
+            const m = String(baseDateForFilters.getMonth() + 1).padStart(2, '0');
+            const d = String(baseDateForFilters.getDate()).padStart(2, '0');
+            const h = String(baseDateForFilters.getHours()).padStart(2, '0');
+
+            let html = '';
+            if (mode === 'HOUR') {
+                html = `<input type="datetime-local" id="filter-hour" value="${y}-${m}-${d}T${h}:00" onchange="procesarYRenderizar()">`;
+            } else if (mode === 'DAY') {
+                html = `<input type="date" id="filter-date" value="${y}-${m}-${d}" onchange="procesarYRenderizar()">`;
+            } else if (mode === 'WEEK') {
+                html = `<input type="week" id="filter-week" value="${getWeekString(baseDateForFilters)}" onchange="procesarYRenderizar()">`;
+            } else if (mode === 'RANGE') {
+                html = `<input type="date" id="filter-start" value="${y}-${m}-01" onchange="procesarYRenderizar()"> <span style="color:#94A3B8;">a</span> 
+                        <input type="date" id="filter-end" value="${y}-${m}-${d}" onchange="procesarYRenderizar()">`;
+            } else if (mode === 'MONTH_ALL') {
+                html = `<select id="filter-month" onchange="procesarYRenderizar()">
+                            <option value="0">Enero</option><option value="1">Febrero</option><option value="2">Marzo</option>
+                            <option value="3">Abril</option><option value="4">Mayo</option><option value="5">Junio</option>
+                            <option value="6">Julio</option><option value="7">Agosto</option><option value="8">Septiembre</option>
+                            <option value="9">Octubre</option><option value="10">Noviembre</option><option value="11">Diciembre</option>
+                        </select>`;
+            } else if (mode === 'MONTH_YEAR') {
+                html = `<input type="month" id="filter-month-year" value="${y}-${m}" onchange="procesarYRenderizar()">`;
+            } else if (mode === 'YEAR') {
+                html = `<input type="number" id="filter-year" value="${y}" step="1" onchange="procesarYRenderizar()" style="width: 80px;">`;
+            }
+            container.innerHTML = html;
+            
+            if(mode === 'MONTH_ALL') document.getElementById('filter-month').value = baseDateForFilters.getMonth();
+        };
+
+        // --- BOTONES DE NAVEGACIÓN INTELIGENTE ---
+        window.navigateFilter = function(dir) {
+            const mode = document.getElementById('filter-mode').value;
+            if(mode === 'ALL') return; 
+            
+            if (mode === 'HOUR') {
+                const el = document.getElementById('filter-hour');
+                if(!el.value) return;
+                let dt = new Date(el.value);
+                dt.setHours(dt.getHours() + dir);
+                el.value = dt.getFullYear() + '-' + String(dt.getMonth()+1).padStart(2,'0') + '-' + String(dt.getDate()).padStart(2,'0') + 'T' + String(dt.getHours()).padStart(2,'0') + ':00';
+                baseDateForFilters = dt;
+            }
+            else if (mode === 'DAY') {
+                const el = document.getElementById('filter-date');
+                if(!el.value) return;
+                let dt = new Date(el.value + 'T00:00:00');
+                dt.setDate(dt.getDate() + dir);
+                el.value = dt.getFullYear() + '-' + String(dt.getMonth()+1).padStart(2,'0') + '-' + String(dt.getDate()).padStart(2,'0');
+                baseDateForFilters = dt;
+            }
+            else if (mode === 'WEEK') {
+                const el = document.getElementById('filter-week');
+                if(!el.value) return;
+                let [y, w] = el.value.split('-W');
+                let dt = new Date(y, 0, 1 + (w - 1) * 7); 
+                dt.setDate(dt.getDate() + (dir * 7));
+                el.value = getWeekString(dt);
+                baseDateForFilters = dt;
+            }
+            else if (mode === 'MONTH_YEAR') {
+                const el = document.getElementById('filter-month-year');
+                if(!el.value) return;
+                let [y, m] = el.value.split('-');
+                let dt = new Date(y, parseInt(m)-1 + dir, 1);
+                el.value = dt.getFullYear() + '-' + String(dt.getMonth()+1).padStart(2,'0');
+                baseDateForFilters = dt;
+            }
+            else if (mode === 'YEAR') {
+                const el = document.getElementById('filter-year');
+                el.value = parseInt(el.value) + dir;
+                baseDateForFilters.setFullYear(el.value);
+            }
+            else if (mode === 'MONTH_ALL') {
+                const el = document.getElementById('filter-month');
+                let m = parseInt(el.value) + dir;
+                if(m > 11) m = 0; if(m < 0) m = 11;
+                el.value = m;
+                baseDateForFilters.setMonth(m);
+            }
+            else if (mode === 'RANGE') {
+                const s = document.getElementById('filter-start');
+                const e = document.getElementById('filter-end');
+                if(!s.value || !e.value) return;
+                let d1 = new Date(s.value + 'T00:00:00');
+                let d2 = new Date(e.value + 'T00:00:00');
+                const diff = Math.round((d2 - d1) / 86400000) + 1; 
+                d1.setDate(d1.getDate() + (dir * diff));
+                d2.setDate(d2.getDate() + (dir * diff));
+                s.value = d1.getFullYear() + '-' + String(d1.getMonth()+1).padStart(2,'0') + '-' + String(d1.getDate()).padStart(2,'0');
+                e.value = d2.getFullYear() + '-' + String(d2.getMonth()+1).padStart(2,'0') + '-' + String(d2.getDate()).padStart(2,'0');
+                baseDateForFilters = d1;
+            }
+            
+            procesarYRenderizar();
+        };
+
+        function filterCandles(candles) {
+            const mode = document.getElementById('filter-mode').value;
+            let filtered = candles; 
+            let labelText = "TODO EL HISTORIAL";
+
+            if (mode !== 'ALL') {
+                filtered = candles.filter(c => {
+                    if(!c.dateObj) return false;
+                    const dy = c.dateObj.getFullYear();
+                    const dm = c.dateObj.getMonth();
+                    const dd = c.dateObj.getDate();
+
+                    if (mode === 'HOUR') {
+                        const val = document.getElementById('filter-hour')?.value;
+                        if(!val) return true;
+                        const [vd, vh] = val.split('T');
+                        const [vy, vm, vday] = vd.split('-');
+                        const [vhour] = vh.split(':');
+                        return dy === parseInt(vy) && dm === parseInt(vm)-1 && dd === parseInt(vday) && c.dateObj.getHours() === parseInt(vhour);
+                    }
+                    if (mode === 'DAY') {
+                        const val = document.getElementById('filter-date')?.value;
+                        if(!val) return true;
+                        const [vy, vm, vd] = val.split('-');
+                        return dy === parseInt(vy) && dm === parseInt(vm)-1 && dd === parseInt(vd);
+                    }
+                    if (mode === 'WEEK') {
+                        const val = document.getElementById('filter-week')?.value;
+                        if(!val) return true;
+                        return getWeekString(c.dateObj) === val;
+                    }
+                    if (mode === 'RANGE') {
+                        const sVal = document.getElementById('filter-start')?.value;
+                        const eVal = document.getElementById('filter-end')?.value;
+                        if(!sVal || !eVal) return true;
+                        const sDate = new Date(sVal + 'T00:00:00').getTime();
+                        const eDate = new Date(eVal + 'T23:59:59').getTime();
+                        const rTime = c.dateObj.getTime();
+                        return rTime >= sDate && rTime <= eDate;
+                    }
+                    if (mode === 'MONTH_ALL') {
+                        const mVal = parseInt(document.getElementById('filter-month')?.value);
+                        return dm === mVal;
+                    }
+                    if (mode === 'MONTH_YEAR') {
+                        const val = document.getElementById('filter-month-year')?.value;
+                        if(!val) return true;
+                        const [vy, vm] = val.split('-');
+                        return dy === parseInt(vy) && dm === parseInt(vm)-1;
+                    }
+                    if (mode === 'YEAR') {
+                        const yVal = parseInt(document.getElementById('filter-year')?.value);
+                        return dy === yVal;
+                    }
+                    return true;
+                });
+
+                if (mode === 'HOUR') labelText = `Hora Específica: ${document.getElementById('filter-hour').value.replace('T', ' ')}`;
+                if (mode === 'DAY') labelText = `Día Específico: ${document.getElementById('filter-date').value}`;
+                if (mode === 'WEEK') labelText = `Semana Específica: ${document.getElementById('filter-week').value}`;
+                if (mode === 'RANGE') labelText = `Rango: ${document.getElementById('filter-start').value} al ${document.getElementById('filter-end').value}`;
+                if (mode === 'MONTH_ALL') {
+                    const meses = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+                    labelText = `Estacionalidad: Mes de ${meses[parseInt(document.getElementById('filter-month').value)]} (Todos los Años)`;
+                }
+                if (mode === 'MONTH_YEAR') labelText = `Mes Específico: ${document.getElementById('filter-month-year').value}`;
+                if (mode === 'YEAR') labelText = `Año Histórico: ${document.getElementById('filter-year').value}`;
+            }
+            
+            document.getElementById('active-filter-label').textContent = 'Mostrando: ' + labelText;
+            return filtered;
+        }
+
+        // --- INDICADORES TÉCNICOS ---
+        function calculateIndicators(candles) {
+            let ema12 = null, ema26 = null, ema20 = null;
+            for(let i=0; i<candles.length; i++) {
+                let c = candles[i];
+                let prevC = i > 0 ? candles[i-1] : null;
+
+                // Fibo Retracement % (0% = En mínimo, 100% = En máximo)
+                c.fibo = (c.high - c.low) === 0 ? 0 : ((c.close - c.low) / (c.high - c.low)) * 100;
+
+                // TR & ATR(14)
+                let tr = c.high - c.low;
+                if(prevC) tr = Math.max(tr, Math.abs(c.high - prevC.close), Math.abs(c.low - prevC.close));
+                c.tr = tr;
+                if(i === 0) c.atr = tr;
+                else c.atr = ((prevC.atr * 13) + tr) / 14;
+
+                // RSI (14)
+                let change = prevC ? c.close - prevC.close : 0;
+                let gain = Math.max(0, change);
+                let loss = Math.max(0, -change);
+                if (i === 0) {
+                    c.avgGain = gain; c.avgLoss = loss; c.rsi = 50;
+                } else {
+                    c.avgGain = ((prevC.avgGain * 13) + gain) / 14;
+                    c.avgLoss = ((prevC.avgLoss * 13) + loss) / 14;
+                    let rs = c.avgLoss === 0 ? 100 : c.avgGain / c.avgLoss;
+                    c.rsi = c.avgLoss === 0 ? 100 : 100 - (100 / (1 + rs));
+                }
+
+                // SMA 20
+                if (i >= 19) {
+                    let sum = 0;
+                    for(let j=0; j<20; j++) sum += candles[i-j].close;
+                    c.sma20 = sum / 20;
+                } else {
+                    c.sma20 = c.close;
+                }
+                c.distSma20 = c.close - c.sma20; // Distancia direccional
+
+                // EMAs (20, 12, 26)
+                if(i === 0) { ema20 = c.close; ema12 = c.close; ema26 = c.close; }
+                else {
+                    ema20 = (c.close - ema20) * (2/21) + ema20;
+                    ema12 = (c.close - ema12) * (2/13) + ema12;
+                    ema26 = (c.close - ema26) * (2/27) + ema26;
+                }
+                c.distEma20 = c.close - ema20;
+                c.macdLine = ema12 - ema26;
+
+                // MACD Signal & Histograma
+                if(i === 0) c.macdSignal = c.macdLine;
+                else c.macdSignal = (c.macdLine - prevC.macdSignal) * (2/10) + prevC.macdSignal;
+                
+                c.macdHist = c.macdLine - c.macdSignal;
+            }
+            return candles;
+        }
+
+        // --- CONSTRUCCIÓN DE VELAS ---
+        function getTimeframeType(tf) {
+            if (['M1','M5','M15','M30','H1','H2','H3','H4','H5','H6','H12'].includes(tf)) return 'INTRADAY';
+            if (['D1'].includes(tf)) return 'DAILY';
+            if (['W1'].includes(tf)) return 'WEEKLY';
+            if (tf === 'MN1') return 'MONTHLY';
+            if (tf === 'Y1') return 'YEARLY';
+            return 'INTRADAY';
+        }
+
+        function buildCandles(data, timeframe) {
+            const groups = {};
+            data.forEach(r => {
+                let key, d = r.dateObj;
+                if(!d) return;
+
+                if (timeframe.startsWith('M') && timeframe !== 'MN1') {
+                    const mNum = parseInt(timeframe.replace('M',''));
+                    key = r.date + ' ' + String(r.hour).padStart(2,'0') + ':' + String(Math.floor(d.getMinutes()/mNum)*mNum).padStart(2,'0');
+                } else if (timeframe.startsWith('H')) {
+                    const hNum = parseInt(timeframe.replace('H',''));
+                    key = r.date + ' ' + String(Math.floor(r.hour/hNum)*hNum).padStart(2,'0') + ':00';
+                } else if (timeframe === 'D1') key = r.date; 
+                else if (timeframe === 'W1') {
+                    let dw = d.getDay(); let dtm = d.getDate() - dw + (dw === 0 ? -6 : 1);
+                    let sw = new Date(d.getFullYear(), d.getMonth(), dtm);
+                    key = 'W_' + sw.getFullYear() + '_' + String(sw.getMonth()+1).padStart(2,'0') + '_' + String(sw.getDate()).padStart(2,'0');
+                } 
+                else if (timeframe === 'MN1') key = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+                else if (timeframe === 'Y1') key = String(d.getFullYear()); 
+                else key = r.date;
+
+                if(!groups[key]) groups[key] = { key: key, dateObj: d, open: r.open, high: r.high, low: r.low, close: r.close };
+                else {
+                    groups[key].high = Math.max(groups[key].high, r.high);
+                    groups[key].low = Math.min(groups[key].low, r.low);
+                    groups[key].close = r.close;
+                }
+            });
+            return Object.values(groups);
+        }
+
+        function getCategory(candle, timeframe) {
+            let d = candle.dateObj;
+            const tfType = getTimeframeType(timeframe);
+            const filterMode = document.getElementById('filter-mode').value;
+
+            if (tfType === 'INTRADAY') return { id: String(d.getHours()), name: `Hora ${d.getHours()}:00 a ${d.getHours()}:59` };
+            
+            // Para Daily, agrupamos por Día de la Semana
+            if (tfType === 'DAILY') {
+                const dias = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+                return { id: String(d.getDay()), name: dias[d.getDay()] };
+            }
+            
+            // Para Weekly, si estamos filtrando por Mes (estacionalidad), agrupamos por número de semana dentro de ese mes
+            if (tfType === 'WEEKLY') {
+                if (filterMode === 'MONTH_ALL' || filterMode === 'MONTH_YEAR') {
+                    const weekOfMonth = Math.ceil(d.getDate() / 7);
+                    return { id: String(weekOfMonth), name: `Semana ${weekOfMonth} del mes` };
+                }
+                const meses = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+                return { id: String(d.getMonth()), name: `Semanas de ${meses[d.getMonth()]}` };
+            }
+            
+            if (tfType === 'MONTHLY') {
+                const meses = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+                return { id: String(d.getMonth()), name: meses[d.getMonth()] };
+            }
+            if (tfType === 'YEARLY') return { id: String(d.getFullYear()), name: `Año ${d.getFullYear()}` };
+            
+            return { id: '0', name: 'General' };
+        }
+
+        function getActiveHighlightKey() {
+            const now = new Date();
+            const mTime = new Date(now.getTime() + (2 * 60 * 60 * 1000)); 
+            const tfType = getTimeframeType(activeTimeframe);
+            const filterMode = document.getElementById('filter-mode').value;
+            
+            if(tfType === 'INTRADAY') return String(mTime.getUTCHours());
+            if(tfType === 'DAILY') return String(mTime.getUTCDay());
+            
+            if(tfType === 'WEEKLY') {
+                 if (filterMode === 'MONTH_ALL' || filterMode === 'MONTH_YEAR') {
+                    return String(Math.ceil(mTime.getUTCDate() / 7));
+                 }
+                 return String(mTime.getUTCMonth());
+            }
+
+            if(tfType === 'MONTHLY') return String(mTime.getUTCMonth());
+            if(tfType === 'YEARLY') return String(mTime.getUTCFullYear());
+            return "-1";
+        }
+
+        // 4. MATEMÁTICAS
+        function calcQuartiles(arr) {
+            if (arr.length === 0) return {q0:0, q1:0, q2:0, q3:0, q4:0};
+            arr.sort((a, b) => a - b);
+            const q = (p) => arr[Math.floor((arr.length - 1) * p)];
+            return { q0: arr[0], q1: q(0.25), q2: q(0.50), q3: q(0.75), q4: arr[arr.length - 1] };
+        }
+
+        // SINCRONIZACIÓN DE ACORDEONES
+        let isSyncing = false;
+        window.syncAccordions = function(sourceElement, key) {
+            if (isSyncing) return;
+            isSyncing = true;
+            const isOpen = sourceElement.open;
+            document.querySelectorAll(`details[data-sync-key="${key}"]`).forEach(el => {
+                if (el !== sourceElement && el.open !== isOpen) el.open = isOpen;
+            });
+            setTimeout(() => { isSyncing = false; }, 10);
+        };
+
+        function getDisplayValue(valor) {
+            if(formatoActual === 'pips') return valor * multiplicadorPips;
+            if(formatoActual === 'points') return valor * multiplicadorPuntos;
+            return valor;
+        }
+
+        function form(valor) {
+            let v = getDisplayValue(valor);
+            if(formatoActual === 'price') return v.toFixed(5);
+            return v.toFixed(1);
+        }
+
+        // --- SISTEMA PREDICTOR (WHAT-IF) ---
+        window.togglePredictSource = function() {
+            const btn = document.getElementById('pred-source-btn');
+            if (btn.getAttribute('data-source') === 'specific') {
+                btn.setAttribute('data-source', 'global');
+                btn.innerHTML = '🌐 Datos: Globales';
+                btn.style.backgroundColor = 'var(--predict-color)';
+                btn.style.borderColor = 'var(--predict-color)';
+            } else {
+                btn.setAttribute('data-source', 'specific');
+                btn.innerHTML = '📊 Datos: Específicos';
+                btn.style.backgroundColor = 'var(--border-color)';
+                btn.style.borderColor = 'var(--border-color)';
+            }
+            actualizarPredictor();
+        };
+
+        window.actualizarPredictor = function() {
+            const openInput = document.getElementById('pred-open').value;
+            const resultsBox = document.getElementById('predict-results');
+            const statusLabel = document.getElementById('pred-status');
+            
+            if (!openInput || isNaN(openInput)) {
+                resultsBox.style.display = 'none';
+                statusLabel.textContent = "Esperando Precio Open...";
+                return;
+            }
+
+            const openPrice = parseFloat(openInput);
+            const dir = document.getElementById('pred-dir').value;
+            const qTarget = document.getElementById('pred-q').value; 
+            
+            // Determinar qué llave usar según el botón toggle
+            const sourceBtn = document.getElementById('pred-source-btn');
+            const useGlobal = sourceBtn && sourceBtn.getAttribute('data-source') === 'global';
+            
+            // Si es global usa '-1' (la tabla global oculta), sino busca la llave específica
+            const currentKey = useGlobal ? '-1' : getActiveHighlightKey();
+            
+            const gruposData = dir === 'bull' ? memoriaGruposBullish : memoriaGruposBearish;
+            const grupoActual = gruposData[currentKey];
+
+            if (!grupoActual || grupoActual.data.length === 0) {
+                resultsBox.style.display = 'none';
+                statusLabel.textContent = `❌ Sin datos estadísticos para la rama actual (${activeTimeframe})`;
+                statusLabel.style.color = 'var(--bearish-color)';
+                return;
+            }
+
+            statusLabel.textContent = `✅ Calculando en base a: ${grupoActual.name} (${grupoActual.data.length} velas)`;
+            statusLabel.style.color = 'var(--bullish-color)';
+
+            const rows = grupoActual.data;
+            const qOpCl = calcQuartiles(rows.map(x => Math.abs(x.close - x.open)));
+            const qOpLo = calcQuartiles(rows.map(x => Math.abs(x.open - x.low)));
+            const qOpHi = calcQuartiles(rows.map(x => Math.abs(x.high - x.open)));
+
+            const rawTP_Dist = qOpCl[qTarget];
+            const rawSL_Dist = dir === 'bull' ? qOpLo[qTarget] : qOpHi[qTarget];
+
+            let predictedTP, predictedSL;
+            if (dir === 'bull') {
+                predictedTP = openPrice + rawTP_Dist;
+                predictedSL = openPrice - rawSL_Dist;
+            } else {
+                predictedTP = openPrice - rawTP_Dist;
+                predictedSL = openPrice + rawSL_Dist;
+            }
+
+            const cap = parseFloat(document.getElementById('calc-capital').value) || 200000;
+            const rsk = parseFloat(document.getElementById('calc-risk').value) || 1;
+            const pipV = parseFloat(document.getElementById('calc-pipvalue').value) || 10;
+            const maxLots = parseFloat(document.getElementById('calc-maxlots').value) || 50;
+            const lev = parseFloat(document.getElementById('calc-leverage').value) || 100;
+            
+            const riskAmt = cap * (rsk / 100);
+            const maxLotsByLeverage = (cap * lev) / 100000; 
+
+            let lotesFinales = 0;
+            let riesgoRealDolares = 0;
+            let distDisplaySL = getDisplayValue(rawSL_Dist);
+            
+            if (distDisplaySL > 0) {
+                let lotesCalc = riskAmt / (distDisplaySL * pipV);
+                // Topamos el lote al máximo del broker o apalancamiento
+                lotesFinales = Math.min(lotesCalc, maxLots, maxLotsByLeverage);
+                
+                // Calculamos cuánto dinero exacto es eso (te confirmará que es el 1% de tu capital, a menos que el broker te limite el lote)
+                riesgoRealDolares = lotesFinales * distDisplaySL * pipV;
+            }
+
+            let ratio = rawSL_Dist > 0 ? (rawTP_Dist / rawSL_Dist).toFixed(2) : "0.00";
+            const fmtLabel = formatoActual === 'price' ? '' : (formatoActual === 'pips' ? ' Pips' : ' Pts');
+            
+            document.getElementById('res-tp').textContent = predictedTP.toFixed(5);
+            document.getElementById('res-tp').style.color = dir === 'bull' ? 'var(--bullish-color)' : 'var(--bearish-color)';
+            document.getElementById('res-tp-dist').textContent = `(+${form(rawTP_Dist)}${fmtLabel})`;
+            
+            document.getElementById('res-sl').textContent = predictedSL.toFixed(5);
+            document.getElementById('res-sl').style.color = dir === 'bull' ? 'var(--bearish-color)' : 'var(--bullish-color)';
+            document.getElementById('res-sl-dist').textContent = `(-${form(rawSL_Dist)}${fmtLabel})`;
+
+            document.getElementById('res-vol').textContent = lotesFinales.toFixed(2) + " Lotes";
+            document.getElementById('res-vol-risk').textContent = `Riesgo: $${riesgoRealDolares.toFixed(2)}`;
+            document.getElementById('res-ratio').textContent = `1:${ratio}`;
+            
+            resultsBox.style.display = 'flex';
+        };
+
+        // --- TABLAS Y MAPA DE CALOR ---
+        function renderIndicatorsTable(rows) {
+            if(!rows || rows.length === 0) return '';
+            
+            const rsiArr = rows.map(x => x.rsi);
+            const macdArr = rows.map(x => x.macdHist);
+            const smaArr = rows.map(x => x.distSma20); 
+            const emaArr = rows.map(x => x.distEma20); 
+            const atrArr = rows.map(x => x.atr); 
+            const fiboArr = rows.map(x => x.fibo); 
+
+            const qRSI = calcQuartiles(rsiArr);
+            const qMACD = calcQuartiles(macdArr);
+            const qSMA = calcQuartiles(smaArr);
+            const qEMA = calcQuartiles(emaArr);
+            const qATR = calcQuartiles(atrArr);
+            const qFibo = calcQuartiles(fiboArr);
+
+            const fRSI = v => v.toFixed(2);
+            const fFibo = v => v.toFixed(1) + '%';
+            const fmtLabel = formatoActual === 'price' ? '' : (formatoActual === 'pips' ? ' Pips' : ' Pts');
+
+            return `
+                <div style="overflow-x: auto; margin-top: 15px; margin-bottom: 5px;">
+                    <div style="color: var(--predict-color); font-weight: bold; margin-bottom: 6px; font-size: 13px;">📊 Análisis Cuantitativo de Indicadores</div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th style="text-align: left;">Indicador Técnico</th>
+                                <th>Q0 (Min)</th><th>Q1 (25%)</th><th>Q2 (Med)</th><th>Q3 (75%)</th><th>Q4 (Max)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td style="text-align: left; font-weight: bold;">RSI (14)</td>
+                                <td>${fRSI(qRSI.q0)}</td><td>${fRSI(qRSI.q1)}</td><td>${fRSI(qRSI.q2)}</td><td>${fRSI(qRSI.q3)}</td><td>${fRSI(qRSI.q4)}</td>
+                            </tr>
+                            <tr>
+                                <td style="text-align: left; font-weight: bold;">MACD Hist (12,26,9)</td>
+                                <td>${form(qMACD.q0)}</td><td>${form(qMACD.q1)}</td><td>${form(qMACD.q2)}</td><td>${form(qMACD.q3)}</td><td>${form(qMACD.q4)}</td>
+                            </tr>
+                            <tr>
+                                <td style="text-align: left; font-weight: bold;">Cierre vs SMA 20</td>
+                                <td>${form(qSMA.q0)}${fmtLabel}</td><td>${form(qSMA.q1)}${fmtLabel}</td><td>${form(qSMA.q2)}${fmtLabel}</td><td>${form(qSMA.q3)}${fmtLabel}</td><td>${form(qSMA.q4)}${fmtLabel}</td>
+                            </tr>
+                            <tr>
+                                <td style="text-align: left; font-weight: bold;">Cierre vs EMA 20</td>
+                                <td>${form(qEMA.q0)}${fmtLabel}</td><td>${form(qEMA.q1)}${fmtLabel}</td><td>${form(qEMA.q2)}${fmtLabel}</td><td>${form(qEMA.q3)}${fmtLabel}</td><td>${form(qEMA.q4)}${fmtLabel}</td>
+                            </tr>
+                            <tr>
+                                <td style="text-align: left; font-weight: bold;">ATR (14) Volatilidad</td>
+                                <td>${form(qATR.q0)}${fmtLabel}</td><td>${form(qATR.q1)}${fmtLabel}</td><td>${form(qATR.q2)}${fmtLabel}</td><td>${form(qATR.q3)}${fmtLabel}</td><td>${form(qATR.q4)}${fmtLabel}</td>
+                            </tr>
+                            <tr style="background-color: rgba(56, 189, 248, 0.05); color: #BAE6FD;">
+                                <td style="text-align: left; font-weight: bold;">Fibo Retracement %</td>
+                                <td>${fFibo(qFibo.q0)}</td><td>${fFibo(qFibo.q1)}</td><td>${fFibo(qFibo.q2)}</td><td>${fFibo(qFibo.q3)}</td><td>${fFibo(qFibo.q4)}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        }
+
+        function renderQuartilesTable(rows, isBullish) {
+            if(!rows || rows.length === 0) return '';
+            
+            const qOpCl = calcQuartiles(rows.map(x => Math.abs(x.close - x.open)));
+            const qHiLo = calcQuartiles(rows.map(x => Math.abs(x.high - x.low)));
+            const qOpLo = calcQuartiles(rows.map(x => Math.abs(x.open - x.low)));
+            const qOpHi = calcQuartiles(rows.map(x => Math.abs(x.high - x.open)));
+
+            const cap = parseFloat(document.getElementById('calc-capital').value) || 200000;
+            const rsk = parseFloat(document.getElementById('calc-risk').value) || 1;
+            const rat = parseFloat(document.getElementById('calc-ratio').value) || 3;
+            const pipV = parseFloat(document.getElementById('calc-pipvalue').value) || 10;
+            const maxLots = parseFloat(document.getElementById('calc-maxlots').value) || 50;
+            const lev = parseFloat(document.getElementById('calc-leverage').value) || 100;
+            
+            const riskAmt = cap * (rsk / 100);
+            const maxLotsByLeverage = (cap * lev) / 100000; 
+
+            const qSL = isBullish ? qOpLo : qOpHi; 
+            const slName = isBullish ? 'O-L (SL Compra)' : 'O-H (SL Venta)';
+            const fmtLabel = formatoActual === 'price' ? '' : (formatoActual === 'pips' ? ' Pips' : ' Pts');
+
+            const calcLots = (dist) => {
+                let distDisplay = getDisplayValue(dist);
+                if (distDisplay > 0) {
+                    let lotesCalculados = riskAmt / (distDisplay * pipV);
+                    return Math.min(lotesCalculados, maxLots, maxLotsByLeverage).toFixed(2);
+                }
+                return '0.00';
+            };
+            const calcTP = (dist) => form(dist * rat) + fmtLabel;
+
+            const calcRatio = (reward, risk) => {
+                if (risk === 0 || isNaN(risk)) return '1:0.00';
+                return '1:' + (reward / risk).toFixed(2);
+            };
+
+            return `
+                <div style="overflow-x: auto; margin-top: 6px; margin-bottom: 10px;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th style="text-align: left;">Distancia</th>
+                                <th>Q0</th><th>Q1</th><th>Q2</th><th>Q3</th><th>Q4</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td style="text-align: left; font-weight: bold;">O-C (Cuerpo)</td>
+                                <td>${form(qOpCl.q0)}${fmtLabel}</td><td>${form(qOpCl.q1)}${fmtLabel}</td><td>${form(qOpCl.q2)}${fmtLabel}</td><td>${form(qOpCl.q3)}${fmtLabel}</td><td>${form(qOpCl.q4)}${fmtLabel}</td>
+                            </tr>
+                            <tr>
+                                <td style="text-align: left; font-weight: bold;">H-L (Rango)</td>
+                                <td>${form(qHiLo.q0)}${fmtLabel}</td><td>${form(qHiLo.q1)}${fmtLabel}</td><td>${form(qHiLo.q2)}${fmtLabel}</td><td>${form(qHiLo.q3)}${fmtLabel}</td><td>${form(qHiLo.q4)}${fmtLabel}</td>
+                            </tr>
+                            <tr>
+                                <td style="text-align: left; font-weight: bold;">O-L (Sombra Inf)</td>
+                                <td>${form(qOpLo.q0)}${fmtLabel}</td><td>${form(qOpLo.q1)}${fmtLabel}</td><td>${form(qOpLo.q2)}${fmtLabel}</td><td>${form(qOpLo.q3)}${fmtLabel}</td><td>${form(qOpLo.q4)}${fmtLabel}</td>
+                            </tr>
+                            <tr>
+                                <td style="text-align: left; font-weight: bold;">O-H (Sombra Sup)</td>
+                                <td>${form(qOpHi.q0)}${fmtLabel}</td><td>${form(qOpHi.q1)}${fmtLabel}</td><td>${form(qOpHi.q2)}${fmtLabel}</td><td>${form(qOpHi.q3)}${fmtLabel}</td><td>${form(qOpHi.q4)}${fmtLabel}</td>
+                            </tr>
+                            <tr class="risk-row">
+                                <td style="text-align: left;">📦 Lotes si SL = ${slName}</td>
+                                <td>${calcLots(qSL.q0)}</td><td>${calcLots(qSL.q1)}</td><td>${calcLots(qSL.q2)}</td><td>${calcLots(qSL.q3)}</td><td>${calcLots(qSL.q4)}</td>
+                            </tr>
+                            <tr class="risk-row">
+                                <td style="text-align: left;">🎯 Target Fijo (Ratio 1:${rat})</td>
+                                <td>${calcTP(qSL.q0)}</td><td>${calcTP(qSL.q1)}</td><td>${calcTP(qSL.q2)}</td><td>${calcTP(qSL.q3)}</td><td>${calcTP(qSL.q4)}</td>
+                            </tr>
+                            <tr style="background-color: rgba(56, 189, 248, 0.05); color: #BAE6FD;">
+                                <td style="text-align: left;">⚖️ Ratio Real (Si TP = O-C)</td>
+                                <td>${calcRatio(qOpCl.q0, qSL.q0)}</td><td>${calcRatio(qOpCl.q1, qSL.q1)}</td><td>${calcRatio(qOpCl.q2, qSL.q2)}</td><td>${calcRatio(qOpCl.q3, qSL.q3)}</td><td>${calcRatio(qOpCl.q4, qSL.q4)}</td>
+                            </tr>
+                            <tr style="background-color: rgba(56, 189, 248, 0.05); color: #BAE6FD;">
+                                <td style="text-align: left;">⚖️ Ratio Real (Si TP = H-L)</td>
+                                <td>${calcRatio(qHiLo.q0, qSL.q0)}</td><td>${calcRatio(qHiLo.q1, qSL.q1)}</td><td>${calcRatio(qHiLo.q2, qSL.q2)}</td><td>${calcRatio(qHiLo.q3, qSL.q3)}</td><td>${calcRatio(qHiLo.q4, qSL.q4)}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        }
+
+        function buildDynamicHeatmap(grupos, isBullish) {
+            let maxIntensity = 0;
+            for(let key in grupos) {
+                if (key === '-1') continue; // Aislar la tabla global para no arruinar el termómetro del mapa de calor
+                const localQ4 = calcQuartiles(grupos[key].data.map(x => Math.abs(x.close - x.open))).q4;
+                if(localQ4 > maxIntensity) maxIntensity = localQ4;
+            }
+
+            let html = '';
+            // El ID '-1' de la tabla global forzará que se ordene en el primer puesto siempre
+            const sortedKeys = Object.keys(grupos).sort((a,b) => parseInt(a) - parseInt(b));
+            const highlightKey = getActiveHighlightKey();
+            const fmtLabel = formatoActual === 'price' ? '' : (formatoActual === 'pips' ? ' Pips' : ' Pts');
+
+            for(let key of sortedKeys) {
+                const grupo = grupos[key];
+                const rows = grupo.data;
+                const qOpCl = calcQuartiles(rows.map(x => Math.abs(x.close - x.open)));
+                const qHiLo = calcQuartiles(rows.map(x => Math.abs(x.high - x.low)));
+                
+                let intensity = maxIntensity > 0 ? (qOpCl.q4 / maxIntensity) : 0;
+                if (key === '-1') intensity = 1; // La tabla global siempre lleva el color más fuerte de base
+
+                let bgOpacity = 0.15 + (intensity * 0.60);
+                let bgColor = isBullish ? `rgba(16, 185, 129, ${bgOpacity})` : `rgba(239, 68, 68, ${bgOpacity})`;
+                let borderCol = isBullish ? 'var(--bullish-color)' : 'var(--bearish-color)';
+
+                const isCurrent = (key === highlightKey);
+                const currentClass = isCurrent ? 'current-time-highlight' : '';
+                
+                // Ahora la tabla global ('-1') está contraída (oculta) por defecto
+                const openAttr = isCurrent ? 'open' : ''; 
+                
+                html += `
+                    <details ${openAttr} class="heatmap-row ${currentClass}" data-sync-key="${key}" ontoggle="syncAccordions(this, '${key}')">
+                        <summary style="background-color: ${bgColor}; border-left: 4px solid ${borderCol};">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <b>${isCurrent?'⭐ ':''}${grupo.name}</b>
+                                <div style="font-size:11px; background:rgba(0,0,0,0.4); padding:3px 6px; border-radius:4px;">
+                                    Q4 O-C: <b>${form(qOpCl.q4)}${fmtLabel}</b> | Q4 H-L: <b>${form(qHiLo.q4)}${fmtLabel}</b> | Velas: ${rows.length}
+                                </div>
+                            </div>
+                        </summary>
+                        <div class="details-content">
+                            ${renderQuartilesTable(rows, isBullish)}
+                            ${renderIndicatorsTable(rows)}
+                        </div>
+                    </details>
+                `;
+            }
+            return html || '<i>Sin datos en esta rama.</i>';
+        }
+
+        window.procesarYRenderizar = function() {
+            // 1. Construir TODAS las velas históricas continuas
+            let allCandles = buildCandles(rawData, activeTimeframe);
+            
+            // 2. Asegurar orden cronológico para el correcto cálculo de los indicadores
+            allCandles.sort((a,b) => a.dateObj.getTime() - b.dateObj.getTime());
+            
+            // 3. Calcular Indicadores Técnicos Secuenciales
+            allCandles = calculateIndicators(allCandles);
+            
+            // 4. Filtrar finalmente por rango, día, mes o año
+            let candles = filterCandles(allCandles);
+
+            memoriaGruposBullish = {}; 
+            memoriaGruposBearish = {};
+
+            candles.forEach(c => {
+                const isBull = c.close >= c.open;
+                const cat = getCategory(c, activeTimeframe);
+
+                const targetObj = isBull ? memoriaGruposBullish : memoriaGruposBearish;
+                
+                // 1. Agrupar en la rama que le corresponde (Ej: Lunes)
+                if(!targetObj[cat.id]) targetObj[cat.id] = { name: cat.name, data: [] };
+                targetObj[cat.id].data.push(c);
+
+                // 2. Agrupar TAMBIÉN en el Resumen Global de la muestra (Id '-1' para fijarlo arriba)
+                if(!targetObj['-1']) targetObj['-1'] = { name: `🌐 RESUMEN GLOBAL (Todos los datos cargados)`, data: [] };
+                targetObj['-1'].data.push(c);
+            });
+
+            document.getElementById('bullish-content').innerHTML = buildDynamicHeatmap(memoriaGruposBullish, true);
+            document.getElementById('bearish-content').innerHTML = buildDynamicHeatmap(memoriaGruposBearish, false);
+            
+            actualizarPredictor();
+        };
+
+        // --- EVENTOS PRINCIPALES ---
+        function cambiarFormato() { formatoActual = document.getElementById('format-selector').value; procesarYRenderizar(); }
+
+        document.querySelectorAll('#timeframe-buttons button').forEach(btn => {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('#timeframe-buttons button').forEach(b => b.classList.remove('active-btn'));
+                this.classList.add('active-btn');
+                activeTimeframe = this.getAttribute('data-tf');
+                procesarYRenderizar();
+                actualizarReloj();
+            });
+        });
+
+        document.getElementById('csv-upload').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                let newData = parseCSV(e.target.result);
+                let combined = rawData.concat(newData);
+                let unique = [];
+                let seen = new Set();
+                
+                for(let r of combined) {
+                    let key = r.date + '_' + r.time;
+                    if(!seen.has(key)) { seen.add(key); unique.push(r); }
+                }
+                
+                unique.sort((a, b) => a.dateObj - b.dateObj);
+                rawData = unique;
+                
+                if(rawData.length > 0 && rawData[rawData.length-1].dateObj) {
+                    baseDateForFilters = new Date(rawData[rawData.length-1].dateObj.getTime());
+                    document.getElementById('filter-mode').value = 'ALL';
+                    updateFilterUI();
+                }
+                
+                procesarYRenderizar();
+                document.getElementById('upload-status').textContent = `¡Datos añadidos! Total acumulado: ${rawData.length} registros.`;
+                document.getElementById('csv-upload').value = ""; 
+            };
+            reader.readAsText(file);
+        });
+
+        // Inicialización
+        rawData = parseCSV(defaultCSV);
+        if(rawData.length > 0 && rawData[rawData.length-1].dateObj) {
+            baseDateForFilters = new Date(rawData[rawData.length-1].dateObj.getTime());
+        }
+        updateFilterUI();
+        procesarYRenderizar();
+
+        // --- RELOJ Y ALARMAS ---
+        function actualizarReloj() {
+            const now = new Date();
+            const mTime = new Date(now.getTime() + (2 * 60 * 60 * 1000)); 
+            
+            const h = String(mTime.getUTCHours()).padStart(2,'0');
+            const m = String(mTime.getUTCMinutes()).padStart(2,'0');
+            const s = String(mTime.getUTCSeconds()).padStart(2,'0');
+            
+            let target = new Date(mTime);
+            let tf = activeTimeframe === 'ALL' ? 'Y1' : activeTimeframe;
+            
+            switch(tf) {
+                case 'M1': target.setUTCMinutes(target.getUTCMinutes() + 1, 0, 0); break;
+                case 'M5': target.setUTCMinutes(target.getUTCMinutes() + (5 - (target.getUTCMinutes() % 5)), 0, 0); break;
+                case 'M15': target.setUTCMinutes(target.getUTCMinutes() + (15 - (target.getUTCMinutes() % 15)), 0, 0); break;
+                case 'M30': target.setUTCMinutes(target.getUTCMinutes() + (30 - (target.getUTCMinutes() % 30)), 0, 0); break;
+                case 'H1': target.setUTCHours(target.getUTCHours() + 1, 0, 0, 0); break;
+                case 'H2': case 'H3': case 'H4': case 'H5': case 'H6': case 'H12':
+                    const hNum = parseInt(tf.replace('H', ''));
+                    target.setUTCHours(target.getUTCHours() + (hNum - (target.getUTCHours() % hNum)), 0, 0, 0); break;
+                case 'D1': target.setUTCDate(target.getUTCDate() + 1); target.setUTCHours(0, 0, 0, 0); break;
+                case 'W1':
+                    let day = target.getUTCDay();
+                    let diffToMonday = (day === 0 ? 1 : 8 - day); 
+                    target.setUTCDate(target.getUTCDate() + diffToMonday);
+                    target.setUTCHours(0, 0, 0, 0); break;
+                case 'MN1': target.setUTCMonth(target.getUTCMonth() + 1, 1); target.setUTCHours(0, 0, 0, 0); break;
+                case 'Y1': target.setUTCFullYear(target.getUTCFullYear() + 1, 0, 1); target.setUTCHours(0, 0, 0, 0); break;
+            }
+
+            const diffMs = target - mTime;
+            const totalHours = Math.floor(diffMs / (1000 * 60 * 60));
+            const totalMinutes = Math.floor(diffMs / (1000 * 60)); 
+            const diffM = String(Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60))).padStart(2, '0');
+            const diffS = String(Math.floor((diffMs % (1000 * 60)) / 1000)).padStart(2, '0');
+
+            let countdownStr = "";
+            if (totalHours >= 24) {
+                const days = Math.floor(totalHours / 24);
+                const remainingHours = String(totalHours % 24).padStart(2, '0');
+                countdownStr = `${days}d ${remainingHours}:${diffM}:${diffS}`;
+            } else {
+                const diffH = String(totalHours).padStart(2, '0');
+                countdownStr = `${diffH}:${diffM}:${diffS}`;
+            }
+
+            const simpleClockEl = document.getElementById('clock-time-simple');
+            simpleClockEl.classList.remove('clock-warning', 'clock-danger');
+            
+            if (totalMinutes < 10) simpleClockEl.classList.add('clock-danger'); 
+            else if (totalMinutes < 60) simpleClockEl.classList.add('clock-warning'); 
+
+            simpleClockEl.textContent = `${h}:${m}`;
+            document.getElementById('clock-time-full').textContent = `${h}:${m}:${s}`;
+            document.getElementById('clock-countdown-full').textContent = countdownStr;
+            if(document.getElementById('clock-tf-label')) document.getElementById('clock-tf-label').textContent = activeTimeframe;
+        }
+        
+        setInterval(actualizarReloj, 1000);
+        actualizarReloj();
+
+    </script>
+</body>
+</html>
